@@ -24,7 +24,8 @@ const local = process.env.D1_LOCAL === "1"; // só para testar no computador, nu
 if (!resumo && !local) falhar("GITHUB_STEP_SUMMARY ausente: este script deve rodar no GitHub Actions.");
 
 const token = gerarToken();
-if (process.env.GITHUB_ACTIONS === "true") console.log(`::add-mask::${token}`);
+// Não usar ::add-mask:: aqui: o GitHub também mascara o resumo do job e o link sairia como "***".
+// O token nunca é impresso no log (só no resumo), e a mensagem de erro abaixo o substitui por "***".
 const tokenHash = await hashDoToken(token);
 const comandos = montarComandos({ email, tokenHash });
 

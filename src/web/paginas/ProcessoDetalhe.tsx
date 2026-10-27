@@ -6,6 +6,7 @@ import { useSessao } from "../sessao";
 import { Abas, AreaTexto, Aviso, Botao, CabecalhoPagina, Cartao, CampoMarcar, Confirmar, Entrada, EsqueletoLinhas, EstadoErro, EstadoVazio, Formulario, Modal, Selecao, Selo, useToast } from "../ui";
 import { AbaDocumentos, Dado } from "./abas-comuns";
 import { AbaAgenda, AbaPrazos } from "./AbasAgendaProcesso";
+import { AbaIntimacoes } from "./AbaIntimacoes";
 import { diaBr, hojeIso } from "./clientes-comum";
 import type { Cliente } from "./clientes-comum";
 import { SeloFase } from "./ProcessoFase";
@@ -612,6 +613,7 @@ export function ProcessoDetalhe({ id }: { id: string }) {
             { id: "andamentos", rotulo: "Andamentos", conteudo: <AbaAndamentos p={p} ehSocio={ehSocio} /> },
             { id: "prazos", rotulo: "Prazos", conteudo: <AbaPrazos p={p} /> },
             { id: "agenda", rotulo: "Agenda", conteudo: <AbaAgenda p={p} /> },
+            { id: "intimacoes", rotulo: "Intimações", conteudo: <AbaIntimacoes p={p} /> },
             { id: "documentos", rotulo: "Documentos", conteudo: <AbaDocumentos base={`/api/processos/${p.id}`} editavel={p.ativo} ehSocio={ehSocio} texto={{ vazio: "Guarde aqui petições, decisões e outros documentos deste processo.", lista: "Documentos do processo" }} /> },
           ]}
         />

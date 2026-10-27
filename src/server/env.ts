@@ -13,6 +13,8 @@ export interface Env {
   EMAIL_ALERTAS_ATIVO?: string;
   /** Endereço remetente dos alertas (precisa estar em domínio com Email Sending configurado na Cloudflare). */
   EMAIL_REMETENTE?: string;
+  /** "false" desliga a busca diária no DJEN (ausente = ligada). */
+  DJEN_COLETA_ATIVA?: string;
   /** Binding `send_email` do Cloudflare Email Service. */
   EMAIL?: SendEmail;
 }

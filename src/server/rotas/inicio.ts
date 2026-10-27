@@ -14,7 +14,7 @@ rotasInicio.get("/", async (c) => {
   const repo = repoDaSessao(c);
   const hoje = hojeDoEscritorio();
   const amanha = somarDias(hoje, 1);
-  const [resumoPrazos, vencidos, deHoje, proximos, eventos, processos, clientes] = await Promise.all([
+  const [resumoPrazos, vencidos, deHoje, proximos, eventos, processos, clientes, intimacoes] = await Promise.all([
     repo.prazos.resumo(hoje),
     repo.prazos.pesquisar({ abertos: true, ate: somarDias(hoje, -1), limite: 5 }),
     repo.prazos.pesquisar({ abertos: true, de: hoje, ate: hoje, limite: 20 }),
@@ -23,6 +23,7 @@ rotasInicio.get("/", async (c) => {
     repo.eventos.proximos(new Date().toISOString(), 6),
     repo.processos.resumo(),
     repo.clientes.resumo(),
+    repo.intimacoes.resumo(hoje, somarDias(hoje, -6)),
   ]);
   const pub = (l: typeof vencidos.itens) => l.map((p) => prazoPublico(p, hoje));
   return c.json({
@@ -40,5 +41,6 @@ rotasInicio.get("/", async (c) => {
     eventos: await eventosPublicos(c, repo, eventos),
     processos: { ativos: processos.total_ativos, por_fase: processos.por_fase },
     clientes: { ativos: clientes.ativos },
+    intimacoes: { nao_lidas: intimacoes.nao_lidas, sem_processo: intimacoes.sem_processo },
   });
 });

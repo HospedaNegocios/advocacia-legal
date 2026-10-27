@@ -285,6 +285,112 @@ export interface LinhaAndamento {
   criado_em: string;
 }
 
+// ---------- Intimações do DJEN (Fase 3) ----------
+
+export type VinculoIntimacao = "cnj" | "manual";
+export type ResultadoDjen = "sucesso" | "erro" | "bloqueado";
+
+export interface LinhaIntimacao {
+  id: string;
+  tenant_id: string;
+  oab_id: string;
+  comunicacao_id: string;
+  hash: string | null;
+  numero_processo: string | null;
+  tribunal: string | null;
+  orgao: string | null;
+  tipo: string | null;
+  tipo_documento: string | null;
+  classe: string | null;
+  data_disponibilizacao: string | null;
+  texto: string;
+  link: string | null;
+  cancelada_em: string | null;
+  processo_id: string | null;
+  vinculo: VinculoIntimacao | null;
+  lida_em: string | null;
+  lida_por: string | null;
+  criado_em: string;
+}
+
+/** Dados de uma publicação já normalizados pela coleta (tenant, oab e vínculo são da camada). */
+export type NovaIntimacao = Pick<
+  LinhaIntimacao,
+  "comunicacao_id" | "hash" | "numero_processo" | "tribunal" | "orgao" | "tipo" | "tipo_documento" | "classe" | "data_disponibilizacao" | "texto" | "link" | "cancelada_em"
+>;
+
+/** Linha da lista: sem o texto integral (só o começo, para a prévia). */
+export type IntimacaoResumida = Omit<LinhaIntimacao, "texto"> & { texto_inicio: string; processo_cnj: string | null };
+export type IntimacaoDetalhada = LinhaIntimacao & { processo_cnj: string | null };
+
+export interface OabDaIntimacao {
+  intimacao_id: string;
+  oab_id: string;
+  numero: string;
+  sufixo: string | null;
+  uf: string;
+  advogado_nome: string;
+}
+
+export interface FiltroIntimacoes {
+  situacao?: "nao_lidas" | "lidas";
+  oab_id?: string;
+  tribunal?: string;
+  vinculo?: "com" | "sem";
+  processo_id?: string;
+  /** Data de disponibilização, AAAA-MM-DD. */
+  de?: string;
+  ate?: string;
+  busca?: string;
+  limite?: number;
+  deslocamento?: number;
+}
+
+export interface ResumoIntimacoes {
+  total: number;
+  nao_lidas: number;
+  /** Disponibilizadas hoje (dia de São Paulo, informado pela rota). */
+  hoje: number;
+  ultimos_7_dias: number;
+  sem_processo: number;
+  tribunais: string[];
+}
+
+export interface LinhaExecucaoDjen {
+  id: string;
+  tenant_id: string;
+  oab_id: string;
+  origem: "cron" | "manual";
+  data_inicio: string;
+  data_fim: string;
+  iniciada_em: string;
+  concluida_em: string | null;
+  paginas: number;
+  itens_lidos: number;
+  itens_novos: number;
+  resultado: ResultadoDjen | null;
+  http_status: number | null;
+  observacao: string | null;
+}
+
+export interface NovaExecucaoDjen {
+  oab_id: string;
+  origem: "cron" | "manual";
+  data_inicio: string;
+  data_fim: string;
+  iniciada_em: string;
+}
+
+export interface ConclusaoExecucaoDjen {
+  resultado: ResultadoDjen;
+  http_status: number | null;
+  paginas: number;
+  itens_lidos: number;
+  itens_novos: number;
+  observacao: string | null;
+  concluida_em: string;
+}
+
 // ---------- Financeiro ----------
 
 export const TIPOS_LANCAMENTO = ["receita", "despesa"] as const;
@@ -900,6 +1006,37 @@ export interface Repositorio {
     cancelar(id: string): Promise<boolean>;
     /** Cancelado → aberto. */
     reabrir(id: string): Promise<boolean>;
+  };
+  /**
+   * Intimações do DJEN. A coleta (Cron ou "Buscar agora") entra por `inserirDaColeta`; o usuário só lê, marca como lida e vincula.
+   * Nenhuma operação apaga intimação.
+   */
+  intimacoes: {
+    /** Grava as publicações novas (a mesma publicação nunca entra duas vezes no escritório) e liga a OAB que a achou. Vincula ao processo pelo número CNJ. Devolve quantas eram novas. */
+    inserirDaColeta(oabId: string, itens: NovaIntimacao[]): Promise<number>;
+    pesquisar(filtro?: FiltroIntimacoes): Promise<{ itens: IntimacaoResumida[]; total: number }>;
+    buscarDetalhada(id: string): Promise<IntimacaoDetalhada | null>;
+    /** OABs do escritório que encontraram cada publicação. */
+    oabsDe(intimacaoIds: string[]): Promise<OabDaIntimacao[]>;
+    /** `hoje` e `desde7` (AAAA-MM-DD) vêm da rota, calculados no dia de São Paulo. */
+    resumo(hoje: string, desde7: string): Promise<ResumoIntimacoes>;
+    /** Falso só se a intimação não existe neste escritório. Já lida continua como está. */
+    marcarLida(id: string, userId: string, agoraIso: string): Promise<boolean>;
+    marcarNaoLida(id: string): Promise<boolean>;
+    /** Marca várias de uma vez (as que existem neste escritório e ainda não foram lidas). Devolve quantas mudaram. */
+    marcarVariasLidas(ids: string[], userId: string, agoraIso: string): Promise<number>;
+    /** Vincula a um processo do escritório, só se ainda não há vínculo. Falso se já vinculada ou inexistente. */
+    vincularProcesso(id: string, processoId: string): Promise<boolean>;
+    /** Liga ao processo (pelo número CNJ) as intimações do escritório que ainda não têm processo. Devolve quantas ligou. */
+    vincularOrfas(): Promise<number>;
+  };
+  /** Execuções da busca no DJEN deste escritório (sem texto de publicação). */
+  djen: {
+    ultimaSucesso(oabId: string): Promise<{ data_fim: string; concluida_em: string } | null>;
+    iniciar(dados: NovaExecucaoDjen): Promise<string>;
+    concluir(id: string, dados: ConclusaoExecucaoDjen): Promise<void>;
+    /** Última rodada terminada (qualquer resultado) e última com sucesso, de todas as OABs. */
+    situacao(): Promise<{ ultima: Pick<LinhaExecucaoDjen, "resultado" | "concluida_em" | "http_status" | "observacao" | "origem"> | null; ultima_sucesso_em: string | null }>;
   };
   /** Permissões por usuário e módulo (hoje só o financeiro). Só usuários ativos do próprio escritório. */
   permissoes: {
@@ -1606,6 +1743,211 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
         return r.meta.changes > 0;
       },
     },
+    intimacoes: {
+      async inserirDaColeta(oabId, itens) {
+        if (itens.length === 0) return 0;
+        const ts = agora();
+        const comandos: D1PreparedStatement[] = [];
+        for (const i of itens) {
+          const cnj = i.numero_processo && /^\d{20}$/.test(i.numero_processo) ? i.numero_processo : null;
+          comandos.push(
+            db
+              .prepare(
+                `INSERT OR IGNORE INTO intimacoes (id, tenant_id, oab_id, comunicacao_id, hash, numero_processo, tribunal, orgao, tipo, tipo_documento, classe,
+                   data_disponibilizacao, texto, link, cancelada_em, processo_id, vinculo, criado_em)
+                 SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, p.id, CASE WHEN p.id IS NULL THEN NULL ELSE 'cnj' END, ?
+                 FROM (SELECT 1 AS x) LEFT JOIN processos p ON p.tenant_id = ? AND p.numero_cnj = ?`,
+              )
+              .bind(
+                crypto.randomUUID(), tid, oabId, i.comunicacao_id, i.hash, i.numero_processo, i.tribunal, i.orgao, i.tipo, i.tipo_documento, i.classe,
+                i.data_disponibilizacao, i.texto, i.link, i.cancelada_em, ts, tid, cnj,
+              ),
+            db
+              .prepare("INSERT OR IGNORE INTO intimacoes_oabs (tenant_id, intimacao_id, oab_id, criado_em) SELECT ?, id, ?, ? FROM intimacoes WHERE tenant_id = ? AND comunicacao_id = ?")
+              .bind(tid, oabId, ts, tid, i.comunicacao_id),
+          );
+        }
+        const r = await db.batch(comandos);
+        let novas = 0;
+        for (let k = 0; k < r.length; k += 2) novas += r[k]?.meta.changes ?? 0;
+        return novas;
+      },
+      async pesquisar(filtro = {}) {
+        const condicoes = ["i.tenant_id = ?"];
+        const params: Valor[] = [tid];
+        if (filtro.situacao === "nao_lidas") condicoes.push("i.lida_em IS NULL");
+        if (filtro.situacao === "lidas") condicoes.push("i.lida_em IS NOT NULL");
+        if (filtro.oab_id) {
+          condicoes.push("EXISTS (SELECT 1 FROM intimacoes_oabs x WHERE x.tenant_id = i.tenant_id AND x.intimacao_id = i.id AND x.oab_id = ?)");
+          params.push(filtro.oab_id);
+        }
+        if (filtro.tribunal) {
+          condicoes.push("i.tribunal = ?");
+          params.push(filtro.tribunal);
+        }
+        if (filtro.vinculo === "com") condicoes.push("i.processo_id IS NOT NULL");
+        if (filtro.vinculo === "sem") condicoes.push("i.processo_id IS NULL");
+        if (filtro.processo_id) {
+          condicoes.push("i.processo_id = ?");
+          params.push(filtro.processo_id);
+        }
+        if (filtro.de) {
+          condicoes.push("i.data_disponibilizacao >= ?");
+          params.push(filtro.de);
+        }
+        if (filtro.ate) {
+          condicoes.push("i.data_disponibilizacao <= ?");
+          params.push(filtro.ate);
+        }
+        const busca = (filtro.busca ?? "").trim().slice(0, 100);
+        if (busca) {
+          const curinga = (t: string) => `%${t.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+          const partes = ["i.texto LIKE ? ESCAPE '\\'", "i.orgao LIKE ? ESCAPE '\\'", "i.tipo LIKE ? ESCAPE '\\'"];
+          const valores: Valor[] = [curinga(busca), curinga(busca), curinga(busca)];
+          const digitos = busca.replace(/\D/g, "");
+          if (digitos.length >= 5) {
+            partes.push("i.numero_processo LIKE ?");
+            valores.push(`%${digitos}%`);
+          }
+          condicoes.push(`(${partes.join(" OR ")})`);
+          params.push(...valores);
+        }
+        const onde = condicoes.join(" AND ");
+        const limite = Math.min(Math.max(Math.trunc(filtro.limite ?? 20), 1), 100);
+        const deslocamento = Math.max(Math.trunc(filtro.deslocamento ?? 0), 0);
+        const [lista, total] = await Promise.all([
+          db
+            .prepare(
+              `SELECT i.id, i.tenant_id, i.oab_id, i.comunicacao_id, i.hash, i.numero_processo, i.tribunal, i.orgao, i.tipo, i.tipo_documento, i.classe,
+                      i.data_disponibilizacao, substr(i.texto, 1, 600) AS texto_inicio, i.link, i.cancelada_em, i.processo_id, i.vinculo, i.lida_em, i.lida_por, i.criado_em,
+                      p.numero_cnj AS processo_cnj
+               FROM intimacoes i LEFT JOIN processos p ON p.id = i.processo_id AND p.tenant_id = i.tenant_id
+               WHERE ${onde} ORDER BY i.data_disponibilizacao DESC, i.criado_em DESC, i.id LIMIT ? OFFSET ?`,
+            )
+            .bind(...params, limite, deslocamento)
+            .all<IntimacaoResumida>(),
+          db.prepare(`SELECT COUNT(*) AS n FROM intimacoes i WHERE ${onde}`).bind(...params).first<{ n: number }>(),
+        ]);
+        return { itens: lista.results, total: total?.n ?? 0 };
+      },
+      async buscarDetalhada(id) {
+        const linha = await db
+          .prepare(
+            `SELECT i.*, p.numero_cnj AS processo_cnj FROM intimacoes i
+             LEFT JOIN processos p ON p.id = i.processo_id AND p.tenant_id = i.tenant_id
+             WHERE i.id = ? AND i.tenant_id = ?`,
+          )
+          .bind(id, tid)
+          .first<IntimacaoDetalhada>();
+        return linha ?? null;
+      },
+      async oabsDe(intimacaoIds) {
+        if (intimacaoIds.length === 0) return [];
+        const { results } = await db
+          .prepare(
+            `SELECT x.intimacao_id AS intimacao_id, o.id AS oab_id, o.numero AS numero, o.sufixo AS sufixo, o.uf AS uf, o.advogado_nome AS advogado_nome
+             FROM intimacoes_oabs x JOIN oabs o ON o.id = x.oab_id AND o.tenant_id = x.tenant_id
+             WHERE x.tenant_id = ? AND x.intimacao_id IN (${intimacaoIds.map(() => "?").join(", ")})
+             ORDER BY o.uf, o.numero`,
+          )
+          .bind(tid, ...intimacaoIds)
+          .all<OabDaIntimacao>();
+        return results;
+      },
+      async resumo(hoje, desde7) {
+        const [l, t] = await Promise.all([
+          db
+            .prepare(
+              `SELECT COUNT(*) AS total,
+                      COALESCE(SUM(CASE WHEN lida_em IS NULL THEN 1 END), 0) AS nao_lidas,
+                      COALESCE(SUM(CASE WHEN data_disponibilizacao = ? THEN 1 END), 0) AS hoje,
+                      COALESCE(SUM(CASE WHEN data_disponibilizacao >= ? AND data_disponibilizacao <= ? THEN 1 END), 0) AS ultimos_7,
+                      COALESCE(SUM(CASE WHEN processo_id IS NULL THEN 1 END), 0) AS sem_processo
+               FROM intimacoes WHERE tenant_id = ?`,
+            )
+            .bind(hoje, desde7, hoje, tid)
+            .first<Record<string, number>>(),
+          db.prepare("SELECT DISTINCT tribunal FROM intimacoes WHERE tenant_id = ? AND tribunal IS NOT NULL ORDER BY tribunal LIMIT 100").bind(tid).all<{ tribunal: string }>(),
+        ]);
+        const n = (k: string) => l?.[k] ?? 0;
+        return { total: n("total"), nao_lidas: n("nao_lidas"), hoje: n("hoje"), ultimos_7_dias: n("ultimos_7"), sem_processo: n("sem_processo"), tribunais: t.results.map((x) => x.tribunal) };
+      },
+      async marcarLida(id, userId, agoraIso) {
+        const r = await db
+          .prepare("UPDATE intimacoes SET lida_em = COALESCE(lida_em, ?), lida_por = COALESCE(lida_por, ?) WHERE id = ? AND tenant_id = ?")
+          .bind(agoraIso, userId, id, tid)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async marcarNaoLida(id) {
+        const r = await db.prepare("UPDATE intimacoes SET lida_em = NULL, lida_por = NULL WHERE id = ? AND tenant_id = ?").bind(id, tid).run();
+        return r.meta.changes > 0;
+      },
+      async marcarVariasLidas(ids, userId, agoraIso) {
+        const unicos = [...new Set(ids)].slice(0, 200);
+        if (unicos.length === 0) return 0;
+        const r = await db
+          .prepare(`UPDATE intimacoes SET lida_em = ?, lida_por = ? WHERE tenant_id = ? AND lida_em IS NULL AND id IN (${unicos.map(() => "?").join(", ")})`)
+          .bind(agoraIso, userId, tid, ...unicos)
+          .run();
+        return r.meta.changes;
+      },
+      async vincularProcesso(id, processoId) {
+        const r = await db
+          .prepare("UPDATE intimacoes SET processo_id = ?, vinculo = 'manual' WHERE id = ? AND tenant_id = ? AND processo_id IS NULL")
+          .bind(processoId, id, tid)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async vincularOrfas() {
+        const r = await db
+          .prepare(
+            `UPDATE intimacoes SET
+               processo_id = (SELECT p.id FROM processos p WHERE p.tenant_id = intimacoes.tenant_id AND p.numero_cnj = intimacoes.numero_processo),
+               vinculo = 'cnj'
+             WHERE tenant_id = ? AND processo_id IS NULL AND numero_processo IS NOT NULL
+               AND EXISTS (SELECT 1 FROM processos p WHERE p.tenant_id = intimacoes.tenant_id AND p.numero_cnj = intimacoes.numero_processo)`,
+          )
+          .bind(tid)
+          .run();
+        return r.meta.changes;
+      },
+    },
+    djen: {
+      async ultimaSucesso(oabId) {
+        const l = await db
+          .prepare("SELECT data_fim, concluida_em FROM djen_execucoes WHERE tenant_id = ? AND oab_id = ? AND resultado = 'sucesso' ORDER BY concluida_em DESC LIMIT 1")
+          .bind(tid, oabId)
+          .first<{ data_fim: string; concluida_em: string }>();
+        return l ?? null;
+      },
+      async iniciar(d) {
+        const id = crypto.randomUUID();
+        await db
+          .prepare("INSERT INTO djen_execucoes (id, tenant_id, oab_id, origem, data_inicio, data_fim, iniciada_em) VALUES (?, ?, ?, ?, ?, ?, ?)")
+          .bind(id, tid, d.oab_id, d.origem, d.data_inicio, d.data_fim, d.iniciada_em)
+          .run();
+        return id;
+      },
+      async concluir(id, d) {
+        await db
+          .prepare(
+            "UPDATE djen_execucoes SET resultado = ?, http_status = ?, paginas = ?, itens_lidos = ?, itens_novos = ?, observacao = ?, concluida_em = ? WHERE id = ? AND tenant_id = ?",
+          )
+          .bind(d.resultado, d.http_status, d.paginas, d.itens_lidos, d.itens_novos, d.observacao, d.concluida_em, id, tid)
+          .run();
+      },
+      async situacao() {
+        const [ultima, ok] = await Promise.all([
+          db
+            .prepare("SELECT resultado, concluida_em, http_status, observacao, origem FROM djen_execucoes WHERE tenant_id = ? AND concluida_em IS NOT NULL ORDER BY concluida_em DESC LIMIT 1")
+            .bind(tid)
+            .first<{ resultado: ResultadoDjen | null; concluida_em: string | null; http_status: number | null; observacao: string | null; origem: "cron" | "manual" }>(),
+          db.prepare("SELECT MAX(concluida_em) AS em FROM djen_execucoes WHERE tenant_id = ? AND resultado = 'sucesso'").bind(tid).first<{ em: string | null }>(),
+        ]);
+        return { ultima: ultima ?? null, ultima_sucesso_em: ok?.em ?? null };
+      },
+    },
     permissoes: {
       async listarUsuarios(modulo) {
         const { results } = await db
@@ -1943,13 +2285,41 @@ export interface EscritorioEmOperacao {
  * ATENÇÃO: acesso SEM filtro de tenant, somente para o Cron Trigger (não há sessão). Só lista quais escritórios
  * estão em operação; os dados de cada um são lidos depois com `criarRepositorio(db, id)`.
  */
+export interface OabParaColetar {
+  tenant_id: string;
+  oab_id: string;
+  numero: string;
+  uf: string;
+  ultima_data_fim: string | null;
+  ultima_concluida_em: string | null;
+}
+
 export interface AcessoAgendado {
+  /**
+   * OABs ATIVAS de escritórios em operação (teste ou ativo), as nunca coletadas primeiro e depois as de coleta mais antiga,
+   * para que o limite por rodada seja dividido de forma justa entre os escritórios.
+   */
+  oabsParaColetar(limite: number): Promise<OabParaColetar[]>;
   /** Escritórios em teste ou ativos (mesma regra do login: suspenso e cancelado ficam de fora), em ordem de id, a partir de `depoisDe`. */
   escritoriosEmOperacao(depoisDe: string | null, limite: number): Promise<EscritorioEmOperacao[]>;
 }
 
 export function criarAcessoAgendado(db: D1Database): AcessoAgendado {
   return {
+    async oabsParaColetar(limite) {
+      const { results } = await db
+        .prepare(
+          `SELECT o.tenant_id AS tenant_id, o.id AS oab_id, o.numero AS numero, o.uf AS uf,
+                  (SELECT e.data_fim FROM djen_execucoes e WHERE e.tenant_id = o.tenant_id AND e.oab_id = o.id AND e.resultado = 'sucesso' ORDER BY e.concluida_em DESC LIMIT 1) AS ultima_data_fim,
+                  (SELECT MAX(e.concluida_em) FROM djen_execucoes e WHERE e.tenant_id = o.tenant_id AND e.oab_id = o.id AND e.resultado = 'sucesso') AS ultima_concluida_em
+           FROM oabs o JOIN tenants t ON t.id = o.tenant_id
+           WHERE o.ativo = 1 AND t.status IN ('teste', 'ativo')
+           ORDER BY (ultima_concluida_em IS NOT NULL), ultima_concluida_em, o.tenant_id, o.id LIMIT ?`,
+        )
+        .bind(Math.min(Math.max(Math.trunc(limite), 1), 1000))
+        .all<OabParaColetar>();
+      return results;
+    },
     async escritoriosEmOperacao(depoisDe, limite) {
       const { results } = await db
         .prepare("SELECT id, nome FROM tenants WHERE status IN ('teste', 'ativo') AND id > ? ORDER BY id LIMIT ?")

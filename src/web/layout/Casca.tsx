@@ -2,9 +2,9 @@ import { Briefcase, Building2, CalendarDays, ChevronsLeft, ChevronsRight, Gavel,
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { Marca } from "../ui";
 import { Link, navegar, useCaminho } from "../roteador";
 import { useSessao } from "../sessao";
-import { Marca } from "./Marca";
 import { MenuUsuario } from "./MenuUsuario";
 
 export interface ItemMenu {
@@ -153,6 +153,9 @@ export function Casca({ children }: { children: ReactNode }) {
           <button type="button" className="btn btn-fantasma btn-icone botao-recolher" aria-label={recolhida ? "Expandir menu lateral" : "Recolher menu lateral"} aria-controls="menu-lateral" onClick={alternarRecolhida}>
             {recolhida ? <ChevronsRight size={20} aria-hidden="true" /> : <ChevronsLeft size={20} aria-hidden="true" />}
           </button>
+          <Link para="/" className="marca-logo topo-marca">
+            <Marca />
+          </Link>
           <div className="topo-escritorio">
             <Scale size={16} aria-hidden="true" />
             <span>{usuario.dono_plataforma ? "Administração da plataforma" : (escritorio?.nome ?? "")}</span>

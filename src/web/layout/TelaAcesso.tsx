@@ -1,8 +1,8 @@
 import { KeyRound, ShieldCheck, UsersRound } from "lucide-react";
 import type { ReactNode } from "react";
+import { Marca } from "../ui";
 import { Link } from "../roteador";
 import { BotaoTema } from "./BotaoTema";
-import { Marca } from "./Marca";
 
 /** Tela dividida das páginas de acesso: painel da marca (desktop) + formulário. */
 export function TelaAcesso({ titulo, descricao, children }: { titulo: string; descricao?: string | undefined; children: ReactNode }) {

@@ -17,6 +17,12 @@
 .marca-logo { display: inline-flex; align-items: center; gap: var(--e-2); color: var(--cor-lateral-texto-forte); font-weight: 700; font-size: var(--texto-lg); letter-spacing: -0.02em; text-decoration: none; white-space: nowrap; }
 .marca-logo:hover { color: var(--cor-lateral-texto-forte); }
 .marca-selo { flex: none; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: var(--raio-md); background: linear-gradient(145deg, #4a62d6, #2f43a3); color: #fff; }
+.marca-texto { font-weight: 700; color: inherit; opacity: 1; }
+.topo-marca { display: none; color: var(--cor-texto); font-size: var(--texto-lg); min-width: 0; }
+.topo-marca:hover { color: var(--cor-texto); }
+.topo-marca .marca-selo { width: 2rem; height: 2rem; }
+.topo-marca .marca-texto .ponto { color: inherit; }
+.acesso-logo-mobile .marca-texto .ponto { color: inherit; }
 .marca-logo .ponto { color: var(--cor-lateral-destaque); }
 .lateral-nav { padding: var(--e-3) var(--e-3) var(--e-4); display: grid; gap: var(--e-1); align-content: start; flex: 1; }
 .nav-rotulo { padding: var(--e-3) var(--e-3) var(--e-1); font-size: var(--texto-xs); letter-spacing: 0.08em; text-transform: uppercase; color: var(--cor-lateral-texto); opacity: 0.8; }
@@ -91,6 +97,8 @@
   .btn.botao-recolher { display: none; }
   .topo { padding: 0 var(--e-2) 0 var(--e-2); }
   .topo-escritorio { display: none; }
+  .topo-marca { display: inline-flex; }
+  .topo-marca + .topo-escritorio + .topo-espaco, .topo-espaco { flex: 1; }
   .conteudo { padding: var(--e-4) var(--e-4) var(--e-10); gap: var(--e-4); }
   .menu-usuario-nome { display: none; }
 }

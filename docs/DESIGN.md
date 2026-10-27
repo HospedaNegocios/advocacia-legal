@@ -3,6 +3,9 @@
 Sistema visual do app. Só existe a marca advocacia.legal (sem personalização por escritório).
 **As cores da marca são uma proposta**: para mudar a identidade, edite apenas `src/web/estilo/tokens.css`.
 
+## Logotipo
+`src/web/ui/Marca.tsx` é um logotipo **provisório** (ícone de balança + texto "advocacia.legal"). Quando houver um logotipo definitivo, troque só esse arquivo: ele é usado no menu lateral, na barra superior do celular, na gaveta e nas telas de acesso. O texto da marca usa sempre a cor cheia do contexto (branco no menu e no painel escuro, `--cor-texto` na barra clara), peso 700, sem opacidade (contraste ≥ 7:1).
+
 ## Princípios
 - Sóbrio e confiável: azul-marinho/índigo, cinzas frios, um destaque dourado (só em detalhes: item ativo do menu e ponto do logo).
 - Dados primeiro: indicadores no topo, gráficos finos e silenciosos, tabelas legíveis.

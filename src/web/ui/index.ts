@@ -28,3 +28,4 @@ export { Passos } from "./Passos";
 export { CopiarLink } from "./CopiarLink";
 export { Confirmar } from "./Confirmar";
 export type { TomSelo } from "./Selo";
+export { Marca } from "./Marca";

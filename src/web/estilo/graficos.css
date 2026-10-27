@@ -1,0 +1,79 @@
+/* Gráficos (src/web/ui/graficos). Cores vêm de tokens --serie-*, --ordinal-*, --grafico-* */
+
+.grafico { margin: 0; display: grid; gap: var(--e-3); min-width: 0; }
+.grafico-cabeca { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--e-3); flex-wrap: wrap; }
+.grafico-cabeca h3 { font-size: var(--texto-base); }
+.grafico-cabeca p { margin: 2px 0 0; color: var(--cor-texto-2); font-size: var(--texto-sm); }
+.grafico-area { position: relative; min-width: 0; }
+.grafico-area svg { display: block; overflow: visible; }
+.grafico-texto { fill: var(--cor-texto-3); font-size: 12px; font-family: var(--fonte); }
+.grafico-texto-forte { fill: var(--cor-texto); font-size: 12px; font-weight: 600; font-family: var(--fonte); }
+.grafico-grade { stroke: var(--grafico-grade); stroke-width: 1; shape-rendering: crispEdges; }
+.grafico-eixo { stroke: var(--grafico-eixo); stroke-width: 1; shape-rendering: crispEdges; }
+.marca-grafico { transition: opacity var(--dur-rapida) var(--ease), filter var(--dur-rapida) var(--ease); outline: none; }
+.marca-grafico:hover, .marca-grafico:focus-visible, .marca-grafico[data-ativo="true"] { filter: brightness(1.12) saturate(1.05); }
+.marca-grafico:focus-visible { stroke: var(--cor-foco); stroke-width: 2px; }
+.grafico-area[data-tem-ativo="true"] .marca-grafico:not([data-ativo="true"]) { opacity: 0.55; }
+
+.legenda { list-style: none; display: flex; flex-wrap: wrap; gap: var(--e-2) var(--e-4); margin: 0; padding: 0; font-size: var(--texto-sm); color: var(--cor-texto-2); }
+.legenda li { display: inline-flex; align-items: center; gap: 6px; }
+.legenda-chave { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.legenda-chave-linha { width: 14px; height: 2px; border-radius: 1px; }
+.legenda svg { flex: none; }
+
+.dica { position: absolute; z-index: 10; pointer-events: none; min-width: 8rem; max-width: 16rem; padding: var(--e-2) var(--e-3); background: var(--cor-superficie); border: 1px solid var(--cor-borda); border-radius: var(--raio-md); box-shadow: var(--sombra-2); font-size: var(--texto-xs); color: var(--cor-texto-2); }
+.dica-titulo { color: var(--cor-texto-2); margin-bottom: 2px; }
+.dica-linha { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.dica-linha b { color: var(--cor-texto); font-size: var(--texto-sm); font-variant-numeric: tabular-nums; }
+.dica-chave { display: inline-flex; align-items: center; gap: 6px; }
+.dica-chave i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* Barras horizontais em HTML */
+.barras-h { display: grid; gap: var(--e-3); margin: 0; padding: 0; list-style: none; }
+.barra-h { display: grid; grid-template-columns: minmax(5rem, 9rem) minmax(0, 1fr); align-items: center; gap: var(--e-3); font-size: var(--texto-sm); outline: none; border-radius: var(--raio-sm); }
+.barra-h:focus-visible { outline: 3px solid var(--cor-foco); outline-offset: 2px; }
+.barra-h-rotulo { color: var(--cor-texto); overflow-wrap: anywhere; }
+.barra-h-trilho { height: 24px; display: flex; align-items: center; }
+.barra-h-marca { height: 20px; min-width: 2px; border-radius: 0 4px 4px 0; transition: filter var(--dur-rapida) var(--ease), width var(--dur) var(--ease); }
+.barra-h:hover .barra-h-marca, .barra-h:focus-visible .barra-h-marca { filter: brightness(1.12); }
+.barra-h-valor { font-weight: 650; font-variant-numeric: tabular-nums; margin-left: var(--e-2); color: var(--cor-texto); }
+@media (max-width: 479.98px) { .barra-h { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+
+/* Barra empilhada (parte do todo) */
+.empilhada { display: flex; gap: 2px; height: 28px; width: 100%; }
+.empilhada-seg { position: relative; height: 100%; min-width: 4px; border: 0; padding: 0; cursor: default; outline: none; display: grid; place-items: center; font-size: var(--texto-xs); font-weight: 700; color: #fff; }
+.empilhada-seg::after { content: ""; position: absolute; inset: -9px 0; }
+.empilhada-seg:first-child { border-radius: 4px 0 0 4px; }
+.empilhada-seg:last-child { border-radius: 0 4px 4px 0; }
+.empilhada-seg:only-child { border-radius: 4px; }
+.empilhada-seg[data-texto-escuro="true"] { color: #0b0b0b; }
+.empilhada-seg:hover, .empilhada-seg:focus-visible { filter: brightness(1.1); }
+.empilhada-seg:focus-visible { outline: 3px solid var(--cor-foco); outline-offset: 1px; }
+.empilhada-vazia { height: 28px; border-radius: 4px; background: var(--cor-superficie-3); }
+.resumo-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e-2); }
+.resumo-lista li { display: flex; align-items: center; gap: var(--e-3); font-size: var(--texto-sm); }
+.resumo-lista .resumo-valor { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+.resumo-lista .resumo-pct { color: var(--cor-texto-2); width: 3.25rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Medidor */
+.medidor { display: grid; gap: 6px; }
+.medidor-cabeca { display: flex; justify-content: space-between; gap: var(--e-3); font-size: var(--texto-sm); color: var(--cor-texto-2); }
+.medidor-cabeca b { white-space: nowrap; color: var(--cor-texto); font-variant-numeric: tabular-nums; }
+.medidor-trilho { --m-cor: var(--serie-1); height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--m-cor) 22%, var(--cor-superficie)); overflow: hidden; }
+.medidor-preenche { height: 100%; border-radius: 4px; background: var(--m-cor); transition: width var(--dur) var(--ease); }
+.medidor[data-tom="aviso"] .medidor-trilho { --m-cor: var(--grafico-aviso); }
+.medidor[data-tom="critico"] .medidor-trilho { --m-cor: var(--grafico-critico); }
+.medidor[data-tom="bom"] .medidor-trilho { --m-cor: var(--grafico-bom); }
+
+.sparkline { display: block; overflow: visible; }
+
+/* Tabela alternativa do gráfico */
+.grafico-tabela { overflow-x: auto; border: 1px solid var(--cor-borda); border-radius: var(--raio-md); }
+.grafico-tabela table { width: 100%; border-collapse: collapse; font-size: var(--texto-sm); }
+.grafico-tabela th, .grafico-tabela td { padding: var(--e-2) var(--e-3); text-align: left; border-bottom: 1px solid var(--cor-borda); }
+.grafico-tabela tbody tr:last-child th, .grafico-tabela tbody tr:last-child td { border-bottom: 0; }
+.grafico-tabela thead th { background: var(--cor-superficie-2); color: var(--cor-texto-2); font-size: var(--texto-xs); text-transform: uppercase; letter-spacing: 0.04em; }
+.grafico-tabela td { font-variant-numeric: tabular-nums; }
+.grafico-tabela th[scope="row"] { font-weight: 500; }
+.grafico-alternar { align-self: flex-start; }
+.grafico-vazio { color: var(--cor-texto-2); font-size: var(--texto-sm); padding: var(--e-6) 0; text-align: center; }

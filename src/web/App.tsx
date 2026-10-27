@@ -1,39 +1,17 @@
 import { useEffect } from "react";
-import { Cartao } from "./componentes";
+import { Casca } from "./layout/Casca";
+import { TelaAcesso } from "./layout/TelaAcesso";
 import { AceitarAcesso } from "./paginas/AceitarAcesso";
 import { Configurar2fa } from "./paginas/Configurar2fa";
 import { Equipe } from "./paginas/Equipe";
+import { Escritorios } from "./paginas/Escritorios";
 import { Inicio } from "./paginas/Inicio";
 import { Login } from "./paginas/Login";
-import { Plataforma } from "./paginas/Plataforma";
-import { Link, navegar, useCaminho } from "./roteador";
+import { Painel } from "./paginas/Painel";
+import { navegar, useCaminho } from "./roteador";
 import { ProvedorSessao, useSessao } from "./sessao";
-
-function Estrutura({ children }: { children: React.ReactNode }) {
-  const { eu, sair } = useSessao();
-  return (
-    <div className="pagina">
-      <header className="topo">
-        <strong className="marca-topo">advocacia.legal</strong>
-        <nav>
-          <Link para="/">Início</Link>
-          {eu?.usuario.dono_plataforma && <Link para="/plataforma">Escritórios</Link>}
-          {eu?.usuario.perfil === "socio" && <Link para="/equipe">Equipe</Link>}
-        </nav>
-        <button
-          type="button"
-          className="secundario"
-          onClick={() => {
-            void sair().then(() => navegar("/entrar", true));
-          }}
-        >
-          Sair
-        </button>
-      </header>
-      <main className="conteudo">{children}</main>
-    </div>
-  );
-}
+import { ProvedorTema } from "./tema";
+import { ProvedorToast, Esqueleto } from "./ui";
 
 function Ir({ para }: { para: string }) {
   useEffect(() => navegar(para, true), [para]);
@@ -46,7 +24,16 @@ function Rotas() {
 
   // Links de acesso funcionam com ou sem sessão aberta.
   if (caminho === "/primeiro-acesso" || caminho === "/convite") return <AceitarAcesso />;
-  if (carregando) return <Cartao titulo="Carregando...">{null}</Cartao>;
+  if (carregando) {
+    return (
+      <TelaAcesso titulo="Carregando...">
+        <div role="status" aria-label="Carregando" style={{ display: "grid", gap: "var(--e-3)" }}>
+          <Esqueleto altura={44} />
+          <Esqueleto altura={44} />
+        </div>
+      </TelaAcesso>
+    );
+  }
   if (!eu) {
     return (
       <>
@@ -58,17 +45,24 @@ function Rotas() {
   if (eu.pendente_2fa) return <Configurar2fa obrigatorio />;
   if (caminho === "/entrar") return <Ir para="/" />;
 
-  let conteudo = <Inicio />;
-  if (caminho === "/plataforma" && eu.usuario.dono_plataforma) conteudo = <Plataforma />;
+  const dono = eu.usuario.dono_plataforma;
+  if (dono && caminho === "/plataforma") return <Ir para="/" />;
+
+  let conteudo = dono ? <Painel /> : <Inicio />;
+  if (caminho === "/escritorios" && dono) conteudo = <Escritorios />;
   else if (caminho === "/equipe" && eu.usuario.perfil === "socio") conteudo = <Equipe />;
   else if (caminho === "/seguranca") conteudo = <Configurar2fa obrigatorio={false} />;
-  return <Estrutura>{conteudo}</Estrutura>;
+  return <Casca>{conteudo}</Casca>;
 }
 
 export function App() {
   return (
-    <ProvedorSessao>
-      <Rotas />
-    </ProvedorSessao>
+    <ProvedorTema>
+      <ProvedorToast>
+        <ProvedorSessao>
+          <Rotas />
+        </ProvedorSessao>
+      </ProvedorToast>
+    </ProvedorTema>
   );
 }

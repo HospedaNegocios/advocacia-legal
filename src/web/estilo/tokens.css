@@ -1,0 +1,232 @@
+/* ==========================================================================
+   Tokens de design da advocacia.legal  (ÚNICO arquivo de cores/medidas da marca)
+   Para trocar a identidade visual, altere somente os valores deste arquivo.
+   Tema claro = :root. Tema escuro = automático (preferência do sistema) ou
+   manual (data-tema="escuro" / "claro" no <html>, definido pelo botão de tema).
+   ATENÇÃO: o bloco escuro aparece DUAS vezes (automático e manual). Mantenha os
+   dois idênticos.
+   ========================================================================== */
+
+:root {
+  /* Tipografia */
+  --fonte: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --texto-xs: 0.75rem;
+  --texto-sm: 0.875rem;
+  --texto-base: 1rem;
+  --texto-lg: 1.125rem;
+  --texto-xl: 1.375rem;
+  --texto-2xl: 1.75rem;
+  --texto-3xl: 2.25rem;
+
+  /* Espaçamento (base 4px) */
+  --e-1: 0.25rem;
+  --e-2: 0.5rem;
+  --e-3: 0.75rem;
+  --e-4: 1rem;
+  --e-5: 1.25rem;
+  --e-6: 1.5rem;
+  --e-8: 2rem;
+  --e-10: 2.5rem;
+  --e-12: 3rem;
+  --e-16: 4rem;
+
+  /* Raios */
+  --raio-sm: 6px;
+  --raio-md: 10px;
+  --raio-lg: 14px;
+  --raio-pilula: 999px;
+
+  /* Movimento */
+  --dur-rapida: 120ms;
+  --dur: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Medidas de layout */
+  --lateral-larga: 17rem;
+  --lateral-estreita: 4.5rem;
+  --topo-altura: 3.5rem;
+  --alvo-toque: 2.75rem; /* 44px */
+
+  color-scheme: light;
+  --cor-fundo: #f3f5fa;
+  --cor-superficie: #ffffff;
+  --cor-superficie-2: #f7f8fc;
+  --cor-superficie-3: #eceff7;
+  --cor-borda: #e1e5ef;
+  --cor-borda-campo: #77849c;
+  --cor-texto: #0f172a;
+  --cor-texto-2: #475569;
+  --cor-texto-3: #566580;
+  --cor-marca: #2f43a3;
+  --cor-marca-hover: #26368a;
+  --cor-marca-texto: #ffffff;
+  --cor-marca-suave: #e8ecfb;
+  --cor-marca-suave-texto: #26368a;
+  --cor-destaque: #a35f00;
+  --cor-foco: #2f6fed;
+  --cor-lateral: #131c3a;
+  --cor-lateral-2: #1b2650;
+  --cor-lateral-texto: #c9d1ec;
+  --cor-lateral-texto-forte: #ffffff;
+  --cor-lateral-destaque: #f2b45a;
+  --cor-lateral-borda: rgba(255, 255, 255, 0.1);
+  --cor-sobreposicao: rgba(15, 23, 42, 0.55);
+  --st-bom-fundo: #e3f4e8;
+  --st-bom-texto: #0b5f27;
+  --st-aviso-fundo: #fdf1d6;
+  --st-aviso-texto: #7a4f00;
+  --st-critico-fundo: #fde8e8;
+  --st-critico-texto: #a11f1f;
+  --st-neutro-fundo: #eceff7;
+  --st-neutro-texto: #3b4963;
+  --st-info-fundo: #e8ecfb;
+  --st-info-texto: #26368a;
+  --sombra-1: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.04);
+  --sombra-2: 0 4px 12px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --sombra-3: 0 16px 40px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.1);
+  /* Gráficos: validados com scripts/validate_palette.js (ver docs/DESIGN.md) */
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-5: #e87ba4;
+  --serie-6: #008300;
+  --serie-7: #6250d6;
+  --serie-8: #e34948;
+  --ordinal-1: #86b6ef;
+  --ordinal-2: #3987e5;
+  --ordinal-3: #1c5cab;
+  --grafico-bom: #0ca30c;
+  --grafico-aviso: #fab219;
+  --grafico-grave: #ec835a;
+  --grafico-critico: #d03b3b;
+  --grafico-neutro: #898781;
+  --grafico-grade: #e1e0d9;
+  --grafico-eixo: #c3c2b7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+  color-scheme: dark;
+  --cor-fundo: #0b0f1a;
+  --cor-superficie: #151b2b;
+  --cor-superficie-2: #1a2236;
+  --cor-superficie-3: #232d46;
+  --cor-borda: #2a3350;
+  --cor-borda-campo: #7684a3;
+  --cor-texto: #e8ecf6;
+  --cor-texto-2: #b0bad0;
+  --cor-texto-3: #94a0ba;
+  --cor-marca: #93a8ff;
+  --cor-marca-hover: #b0c0ff;
+  --cor-marca-texto: #0b0f1a;
+  --cor-marca-suave: #222c52;
+  --cor-marca-suave-texto: #c3cfff;
+  --cor-destaque: #f2b45a;
+  --cor-foco: #7aa7ff;
+  --cor-lateral: #0f1528;
+  --cor-lateral-2: #1a2342;
+  --cor-lateral-texto: #b9c3de;
+  --cor-lateral-texto-forte: #ffffff;
+  --cor-lateral-destaque: #f2b45a;
+  --cor-lateral-borda: rgba(255, 255, 255, 0.08);
+  --cor-sobreposicao: rgba(2, 5, 12, 0.7);
+  --st-bom-fundo: #12301f;
+  --st-bom-texto: #7fdc9c;
+  --st-aviso-fundo: #3a2c0a;
+  --st-aviso-texto: #f4c363;
+  --st-critico-fundo: #3d1717;
+  --st-critico-texto: #ff9b9b;
+  --st-neutro-fundo: #232d46;
+  --st-neutro-texto: #b9c3de;
+  --st-info-fundo: #222c52;
+  --st-info-texto: #c3cfff;
+  --sombra-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sombra-2: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --sombra-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+  --serie-6: #008300;
+  --serie-7: #9085e9;
+  --serie-8: #e66767;
+  --ordinal-1: #2a78d6;
+  --ordinal-2: #5598e7;
+  --ordinal-3: #9ec5f4;
+  --grafico-bom: #0ca30c;
+  --grafico-aviso: #fab219;
+  --grafico-grave: #ec835a;
+  --grafico-critico: #d03b3b;
+  --grafico-neutro: #898781;
+  --grafico-grade: #2c3350;
+  --grafico-eixo: #3b4565;
+  }
+}
+
+:root[data-tema="escuro"] {
+  color-scheme: dark;
+  --cor-fundo: #0b0f1a;
+  --cor-superficie: #151b2b;
+  --cor-superficie-2: #1a2236;
+  --cor-superficie-3: #232d46;
+  --cor-borda: #2a3350;
+  --cor-borda-campo: #7684a3;
+  --cor-texto: #e8ecf6;
+  --cor-texto-2: #b0bad0;
+  --cor-texto-3: #94a0ba;
+  --cor-marca: #93a8ff;
+  --cor-marca-hover: #b0c0ff;
+  --cor-marca-texto: #0b0f1a;
+  --cor-marca-suave: #222c52;
+  --cor-marca-suave-texto: #c3cfff;
+  --cor-destaque: #f2b45a;
+  --cor-foco: #7aa7ff;
+  --cor-lateral: #0f1528;
+  --cor-lateral-2: #1a2342;
+  --cor-lateral-texto: #b9c3de;
+  --cor-lateral-texto-forte: #ffffff;
+  --cor-lateral-destaque: #f2b45a;
+  --cor-lateral-borda: rgba(255, 255, 255, 0.08);
+  --cor-sobreposicao: rgba(2, 5, 12, 0.7);
+  --st-bom-fundo: #12301f;
+  --st-bom-texto: #7fdc9c;
+  --st-aviso-fundo: #3a2c0a;
+  --st-aviso-texto: #f4c363;
+  --st-critico-fundo: #3d1717;
+  --st-critico-texto: #ff9b9b;
+  --st-neutro-fundo: #232d46;
+  --st-neutro-texto: #b9c3de;
+  --st-info-fundo: #222c52;
+  --st-info-texto: #c3cfff;
+  --sombra-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sombra-2: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --sombra-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+  --serie-6: #008300;
+  --serie-7: #9085e9;
+  --serie-8: #e66767;
+  --ordinal-1: #2a78d6;
+  --ordinal-2: #5598e7;
+  --ordinal-3: #9ec5f4;
+  --grafico-bom: #0ca30c;
+  --grafico-aviso: #fab219;
+  --grafico-grave: #ec835a;
+  --grafico-critico: #d03b3b;
+  --grafico-neutro: #898781;
+  --grafico-grade: #2c3350;
+  --grafico-eixo: #3b4565;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-rapida: 0.01ms;
+    --dur: 0.01ms;
+  }
+}

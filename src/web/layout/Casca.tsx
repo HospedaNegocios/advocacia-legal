@@ -1,0 +1,176 @@
+import { Briefcase, Building2, CalendarDays, ChevronsLeft, ChevronsRight, Gavel, House, LayoutDashboard, Menu, Scale, Users, Wallet, X, Bell } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { Marca } from "../ui";
+import { Link, navegar, useCaminho } from "../roteador";
+import { useSessao } from "../sessao";
+import { MenuUsuario } from "./MenuUsuario";
+
+export interface ItemMenu {
+  para?: string;
+  rotulo: string;
+  icone: LucideIcon;
+  /** Módulo ainda não construído (docs/MVP.md): aparece desativado com "Em breve". */
+  emBreve?: boolean;
+  descricao?: string;
+}
+
+const MENU_DONO: ItemMenu[] = [
+  { para: "/", rotulo: "Painel", icone: LayoutDashboard },
+  { para: "/escritorios", rotulo: "Escritórios", icone: Building2 },
+];
+
+const MODULOS_BREVE: ItemMenu[] = [
+  { rotulo: "Clientes", icone: Users, emBreve: true, descricao: "Cadastro de pessoas físicas e jurídicas" },
+  { rotulo: "Processos", icone: Briefcase, emBreve: true, descricao: "Processos pelo número CNJ" },
+  { rotulo: "Prazos", icone: Bell, emBreve: true, descricao: "Prazos fatais e alertas" },
+  { rotulo: "Agenda", icone: CalendarDays, emBreve: true, descricao: "Audiências, reuniões e diligências" },
+  { rotulo: "Financeiro", icone: Wallet, emBreve: true, descricao: "Honorários e caixa" },
+  { rotulo: "Intimações", icone: Gavel, emBreve: true, descricao: "Intimações do DJEN" },
+];
+
+export const MODULOS_EM_BREVE: readonly ItemMenu[] = MODULOS_BREVE;
+
+function lerRecolhida(): boolean {
+  try {
+    return localStorage.getItem("lateral") === "recolhida";
+  } catch {
+    return false;
+  }
+}
+
+export function Casca({ children }: { children: ReactNode }) {
+  const { eu, sair } = useSessao();
+  const caminho = useCaminho();
+  const [recolhida, setRecolhida] = useState(lerRecolhida);
+  const [gavetaAberta, setGavetaAberta] = useState(false);
+  const botaoMenu = useRef<HTMLButtonElement>(null);
+  const primeiraVez = useRef(true);
+
+  useEffect(() => {
+    setGavetaAberta(false);
+    if (primeiraVez.current) {
+      primeiraVez.current = false;
+      return;
+    }
+    document.getElementById("titulo-pagina")?.focus({ preventScroll: true });
+  }, [caminho]);
+
+  useEffect(() => {
+    if (!gavetaAberta) return;
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setGavetaAberta(false);
+        botaoMenu.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", tecla);
+    return () => document.removeEventListener("keydown", tecla);
+  }, [gavetaAberta]);
+
+  if (!eu) return null;
+  const { usuario, escritorio } = eu;
+
+  const alternarRecolhida = () => {
+    setRecolhida((v) => {
+      try {
+        localStorage.setItem("lateral", v ? "aberta" : "recolhida");
+      } catch {
+        /* sem armazenamento: vale só nesta visita */
+      }
+      return !v;
+    });
+  };
+
+  const principais: ItemMenu[] = usuario.dono_plataforma
+    ? MENU_DONO
+    : [{ para: "/", rotulo: "Início", icone: House }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
+  const futuros = usuario.dono_plataforma ? [] : MODULOS_BREVE;
+
+  const renderItem = (item: ItemMenu) => {
+    const Icone = item.icone;
+    if (item.emBreve || !item.para) {
+      return (
+        <li key={item.rotulo}>
+          <div className="nav-item" aria-disabled="true" title={`${item.rotulo}: em breve`}>
+            <Icone size={20} aria-hidden="true" />
+            <span className="nav-texto">{item.rotulo}</span>
+            <span className="nav-breve">Em breve</span>
+            <span className="so-leitor">(em breve)</span>
+          </div>
+        </li>
+      );
+    }
+    const atual = item.para === "/" ? caminho === "/" : caminho === item.para || caminho.startsWith(`${item.para}/`);
+    return (
+      <li key={item.rotulo}>
+        <Link para={item.para} className="nav-item" atual={atual}>
+          <Icone size={20} aria-hidden="true" />
+          <span className="nav-texto">{item.rotulo}</span>
+          {recolhida && <span className="so-leitor">{item.rotulo}</span>}
+        </Link>
+      </li>
+    );
+  };
+
+  return (
+    <div className={`casca${recolhida ? " recolhida" : ""}`}>
+      <a href="#conteudo" className="pular-conteudo">
+        Pular para o conteúdo
+      </a>
+      {gavetaAberta && <div className="gaveta-fundo" onClick={() => setGavetaAberta(false)} aria-hidden="true" />}
+      <aside className={`lateral${gavetaAberta ? " aberta" : ""}`} id="menu-lateral" aria-label="Menu principal">
+        <div className="lateral-topo">
+          <Link para="/" className="marca-logo">
+            <Marca />
+          </Link>
+          <button type="button" className="btn btn-fantasma btn-icone botao-fechar-gaveta" aria-label="Fechar menu" onClick={() => setGavetaAberta(false)}>
+            <X size={20} aria-hidden="true" />
+          </button>
+        </div>
+        <nav className="lateral-nav" aria-label="Seções">
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "var(--e-1)" }}>
+            <li className="nav-rotulo" aria-hidden="true">
+              {usuario.dono_plataforma ? "Plataforma" : "Escritório"}
+            </li>
+            {principais.map(renderItem)}
+            {futuros.length > 0 && (
+              <li className="nav-rotulo" aria-hidden="true">
+                Módulos
+              </li>
+            )}
+            {futuros.map(renderItem)}
+          </ul>
+        </nav>
+      </aside>
+
+      <div className="principal">
+        <header className="topo">
+          <button ref={botaoMenu} type="button" className="btn btn-fantasma btn-icone botao-menu-mobile" aria-label="Abrir menu" aria-expanded={gavetaAberta} aria-controls="menu-lateral" onClick={() => setGavetaAberta(true)}>
+            <Menu size={22} aria-hidden="true" />
+          </button>
+          <button type="button" className="btn btn-fantasma btn-icone botao-recolher" aria-label={recolhida ? "Expandir menu lateral" : "Recolher menu lateral"} aria-controls="menu-lateral" onClick={alternarRecolhida}>
+            {recolhida ? <ChevronsRight size={20} aria-hidden="true" /> : <ChevronsLeft size={20} aria-hidden="true" />}
+          </button>
+          <Link para="/" className="marca-logo topo-marca">
+            <Marca />
+          </Link>
+          <div className="topo-escritorio">
+            <Scale size={16} aria-hidden="true" />
+            <span>{usuario.dono_plataforma ? "Administração da plataforma" : (escritorio?.nome ?? "")}</span>
+          </div>
+          <span className="topo-espaco" />
+          <MenuUsuario
+            aoSair={() => {
+              void sair().then(() => navegar("/entrar", true));
+            }}
+          />
+        </header>
+        <main className="conteudo" id="conteudo" tabIndex={-1}>
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ErroApi, api } from "../api";
-import { Aviso, Cartao, Formulario } from "../componentes";
+import { TelaAcesso } from "../layout/TelaAcesso";
+import { Aviso, Botao, Entrada, Formulario } from "../ui";
 import { navegar } from "../roteador";
 import { useSessao } from "../sessao";
 
@@ -56,35 +57,41 @@ export function AceitarAcesso() {
 
   if (!dados) {
     return (
-      <Cartao titulo="Acesso">
-        {erro ? <Aviso>{erro}</Aviso> : <p>Verificando o link...</p>}
-      </Cartao>
+      <TelaAcesso titulo="Acesso" descricao={erro ? undefined : "Verificando o link..."}>
+        {erro && <Aviso>{erro}</Aviso>}
+        {erro && (
+          <Botao variante="secundario" bloco onClick={() => navegar("/entrar")}>
+            Ir para a tela de entrada
+          </Botao>
+        )}
+      </TelaAcesso>
     );
   }
   return (
-    <Cartao titulo={dados.tipo === "convite" ? "Você foi convidado" : "Primeiro acesso"}>
-      <p>
-        {dados.escritorio ? <>Escritório: <strong>{dados.escritorio}</strong><br /></> : null}
-        E-mail: <strong>{dados.email}</strong>
-      </p>
+    <TelaAcesso titulo={dados.tipo === "convite" ? "Você foi convidado" : "Primeiro acesso"} descricao="Crie a sua senha para começar a usar o sistema.">
+      <dl className="dados">
+        {dados.escritorio && (
+          <>
+            <dt>Escritório</dt>
+            <dd>
+              <strong>{dados.escritorio}</strong>
+            </dd>
+          </>
+        )}
+        <dt>E-mail</dt>
+        <dd>
+          <strong>{dados.email}</strong>
+        </dd>
+      </dl>
       <Formulario aoEnviar={() => void enviar()}>
-        <label>
-          Seu nome {dados.tipo === "convite" ? "" : "(opcional)"}
-          <input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={120} autoComplete="name" required={dados.tipo === "convite"} />
-        </label>
-        <label>
-          Crie uma senha (mínimo 10 caracteres)
-          <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} minLength={10} autoComplete="new-password" required />
-        </label>
-        <label>
-          Repita a senha
-          <input type="password" value={repetir} onChange={(e) => setRepetir(e.target.value)} autoComplete="new-password" required />
-        </label>
+        <Entrada rotulo={dados.tipo === "convite" ? "Seu nome" : "Seu nome (opcional)"} value={nome} onChange={(e) => setNome(e.target.value)} maxLength={120} autoComplete="name" required={dados.tipo === "convite"} />
+        <Entrada rotulo="Crie uma senha" ajuda="Mínimo de 10 caracteres." type="password" value={senha} onChange={(e) => setSenha(e.target.value)} minLength={10} autoComplete="new-password" required />
+        <Entrada rotulo="Repita a senha" type="password" value={repetir} onChange={(e) => setRepetir(e.target.value)} autoComplete="new-password" required />
         {erro && <Aviso>{erro}</Aviso>}
-        <button type="submit" disabled={enviando}>
+        <Botao type="submit" tamanho="grande" bloco carregando={enviando}>
           Salvar e continuar
-        </button>
+        </Botao>
       </Formulario>
-    </Cartao>
+    </TelaAcesso>
   );
 }

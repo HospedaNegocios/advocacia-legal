@@ -52,6 +52,11 @@ export const ROTULO_STATUS: Record<Status, string> = {
   cancelado: "Cancelado",
 };
 
+export function formatarDia(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("pt-BR");
+}
+
 export function formatarData(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });

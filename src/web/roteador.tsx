@@ -19,14 +19,27 @@ export function useCaminho(): string {
   return caminho;
 }
 
-export function Link({ para, children }: { para: string; children: ReactNode }) {
+export function Link({
+  para,
+  children,
+  className,
+  atual,
+  aoNavegar,
+}: {
+  para: string;
+  children: ReactNode;
+  className?: string | undefined;
+  atual?: boolean | undefined;
+  aoNavegar?: (() => void) | undefined;
+}) {
   const aoClicar = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
     navegar(para);
+    aoNavegar?.();
   };
   return (
-    <a href={para} onClick={aoClicar}>
+    <a href={para} onClick={aoClicar} className={className} aria-current={atual ? "page" : undefined}>
       {children}
     </a>
   );

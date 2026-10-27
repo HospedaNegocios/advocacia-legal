@@ -1,0 +1,48 @@
+name: criar-dono
+
+# Cria o dono da plataforma (ou gera novo link para um dono que já existe) e mostra o link
+# de primeiro acesso SOMENTE no resumo do job (aba Summary). O link vale 24 horas e só abre uma vez.
+# Antes de usar: o deploy do ambiente já deve ter rodado (aplica as migrações) e o workflow
+# configurar-segredos deve ter sido executado.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente
+        type: choice
+        required: true
+        options: [dev, prod]
+      email:
+        description: E-mail do dono da plataforma
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: criar-dono-${{ inputs.ambiente }}
+  cancel-in-progress: false
+
+jobs:
+  criar-dono:
+    # Produção só a partir da branch main.
+    if: inputs.ambiente != 'prod' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Entradas passam por variáveis de ambiente (nunca coladas dentro do comando) e o script as valida.
+      AMBIENTE: ${{ inputs.ambiente }}
+      EMAIL: ${{ inputs.email }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Criar dono e gerar link de primeiro acesso
+        run: node scripts/criar-dono.mjs

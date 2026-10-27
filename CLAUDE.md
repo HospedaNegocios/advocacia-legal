@@ -29,6 +29,7 @@ SaaS jurídico por assinatura para escritórios de advocacia, cobrado por escrit
 | Domínio por cliente | **Não.** Um domínio só, controle total da gestão de escritórios |
 | Ambientes | dev e prod totalmente separados (Worker, D1, R2) |
 | Endereço do dev | **`dev.app.advocacia.legal`** (Custom Domain do Worker; certificado gerado automaticamente, sem custo extra — verificado na doc da Cloudflare em 2026-10-27) |
+| Dono da plataforma | Login: **guilherme@hospedanegocios.com.br** (criado pelo fluxo de primeiro acesso, sem senha no código) |
 | Git | GitHub `HospedaNegocios/advocacia-legal`. `develop` → dev, `main` → prod |
 | MVP | Acesso/equipe, config. do escritório (dados e OABs), clientes, processos, prazos, agenda, financeiro, portal do cliente, intimações DJEN, resumo por IA, painel do dono |
 | Teste grátis | 14 dias, sem cartão de crédito |
@@ -95,7 +96,9 @@ Verificação de termos feita em 2026-10-27 — ver `docs/DJEN.md`. Resumo: API 
 | `CLOUDFLARE_API_TOKEN` (Workers, D1, R2, KV desta conta) | GitHub Secrets do repositório | Usuário, guiado por Claude | criado em 2026-10-27 (expira em 90 dias) |
 | `CLOUDFLARE_ACCOUNT_ID` | GitHub Secrets | Usuário | salvo em 2026-10-27 |
 | Claude GitHub App no repositório (permite push e Claude Code na nuvem) | GitHub da organização HospedaNegocios | Usuário (admin da org) | instalado em 2026-10-27 (informado pelo usuário) |
-| Segredos da aplicação (chave de sessão etc.) | Cloudflare Secrets por ambiente | Claude | pendente |
+| `CHAVE_CRIPTO` (32 bytes em base64; cifra os segredos do 2FA e assina o desafio do 2FA) | Cloudflare Secrets por ambiente | Workflow `configurar-segredos` (gera e grava sem mostrar o valor) | pendente de execução (dev e prod) |
+
+**Atenção:** trocar ou apagar `CHAVE_CRIPTO` torna ilegíveis os segredos TOTP já cadastrados (todos os usuários com 2FA ficariam sem conseguir entrar e precisariam refazer o 2FA). Por isso o workflow nunca sobrescreve uma chave existente. Em testes, a chave vem de um valor fixo em `vitest.config.ts`.
 
 Rotação do token Cloudflare: a cada 90 dias. Registrar aqui a data da última troca: 2026-10-27 (próxima até 2027-01-25)
 
@@ -108,5 +111,8 @@ Rotação do token Cloudflare: a cada 90 dias. Registrar aqui a data da última 
 - [x] Criar `CLOUDFLARE_API_TOKEN` e salvar nos GitHub Secrets (usuário, com guia)
 - [x] Domínio `advocacia.legal` ativo na Cloudflare (usuário confirmou em 2026-10-27)
 - [ ] Endereço da empresa e nome do encarregado (DPO) (usuário)
-- [ ] **Próximo passo: Fase 0 (fundação)** — ver `docs/ROADMAP.md`
-
+- [x] Fase 0, parte 1 (fundação) publicada no dev em 2026-10-27 (PR #1): projeto TS/Hono/React/Vitest/Wrangler, `wrangler.jsonc` com envs dev/prod, migrações D1 (`tenants`, `users`, `sessions`, `audit_log`), camada de dados com `tenant_id` obrigatório (`src/server/db/repositorio.ts`) + testes de isolamento, `GET /api/saude`, CI e deploy no GitHub Actions.
+- [x] Fase 0, parte 2 (acesso) publicada no dev em 2026-10-27 (PR #2, revisão de segurança feita): migração `0002_acesso.sql` (tokens de uso único, limite de tentativas por IP, `exigir_2fa`, `senha_definida`, `totp_ultimo_passo`, `sessions.pendente_2fa`); senha PBKDF2-SHA256 (100.000 iterações, mínimo 10 caracteres); sessão em cookie `__Host-sessao` (12 h, só o hash no banco); 2FA TOTP (RFC 6238) com segredo cifrado AES-GCM; bloqueio de 15 min após 5 erros; limite de 20 erros por IP em 15 min; proteção CSRF (Origin + `X-Requested-With: advocacia`); log de auditoria; primeiro acesso do dono e convites por link de uso único; painel do dono (`/api/plataforma/*`); equipe do escritório (`/api/equipe/*`, só sócio); telas em React; workflows `criar-dono` e `configurar-segredos`.
+- [ ] **Para usar em dev:** depois do deploy da `develop` (aplica a migração 0002), rodar no GitHub Actions `configurar-segredos` (dev) e depois `criar-dono` (dev, com o e-mail do dono) e abrir o link do resumo (ver README).
+- [ ] Decisões pendentes do usuário: bloquear escritório com teste grátis vencido (`teste_ate` passou)? limites de usuários por plano (Solo 1, Escritório 5) devem ser impostos nos convites? envio de convite por e-mail (hoje o sócio copia o link)?
+- [ ] **Próximo passo: Fase 1 — núcleo do escritório** (ver `docs/ROADMAP.md`)

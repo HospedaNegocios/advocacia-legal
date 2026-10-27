@@ -1,0 +1,52 @@
+// Configuração do Worker advocacia.legal.
+// Atenção: bindings (D1, R2, vars) NÃO são herdados entre ambientes no Wrangler;
+// por isso ficam declarados dentro de cada ambiente ("dev" e "prod").
+// Use sempre --env dev ou --env prod. Nenhum segredo fica neste arquivo.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": "src/server/index.ts",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // A API roda primeiro no Worker; o resto é servido como arquivo estático (SPA).
+    "run_worker_first": ["/api/*"]
+  },
+  "env": {
+    "dev": {
+      "name": "advocacia-legal-dev",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [{ "pattern": "dev.app.advocacia.legal", "custom_domain": true }],
+      "vars": { "AMBIENTE": "dev" },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "advocacia-legal-dev",
+          "database_id": "dc1609a4-a249-4548-a1ea-f934cb54eb48",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [{ "binding": "ARQUIVOS", "bucket_name": "advocacia-legal-dev" }]
+    },
+    "prod": {
+      "name": "advocacia-legal",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [{ "pattern": "app.advocacia.legal", "custom_domain": true }],
+      "vars": { "AMBIENTE": "prod" },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "advocacia-legal-prod",
+          "database_id": "2f2cac5f-5885-455e-b31d-61094f2c707e",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [{ "binding": "ARQUIVOS", "bucket_name": "advocacia-legal-prod" }]
+    }
+  }
+}

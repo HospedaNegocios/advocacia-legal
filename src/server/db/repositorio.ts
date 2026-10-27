@@ -321,6 +321,12 @@ export interface FiltroPrazos {
   deslocamento?: number;
 }
 
+export interface ResponsavelDeAlerta {
+  id: string;
+  nome: string;
+  email: string;
+}
+
 export interface ResumoPrazos {
   hoje: string;
   vencidos: number;
@@ -758,6 +764,15 @@ export interface Repositorio {
     atualizarComParticipantes(id: string, dados: DadosEvento, userIds: string[]): Promise<boolean>;
     /** Apaga o evento e seus participantes juntos. */
     excluirCompleto(id: string): Promise<boolean>;
+  };
+  /** E-mail diário de alerta de prazos (Fase 2). */
+  alertas: {
+    /** Usuários ativos, com senha definida, que são responsáveis por prazo não concluído com data fatal até `ate` (AAAA-MM-DD). */
+    responsaveisComPrazos(ate: string): Promise<ResponsavelDeAlerta[]>;
+    /** Reserva o envio do dia para o usuário. Falso se já existe (outro disparo do cron já enviou ou está enviando). */
+    reservarEnvio(userId: string, dataLocal: string, qtdPrazos: number): Promise<boolean>;
+    /** Desfaz a reserva quando o envio falhou, para que uma nova execução do dia possa tentar de novo. */
+    liberarEnvio(userId: string, dataLocal: string): Promise<void>;
   };
   /** Auditoria: só leitura e registro (sem alterar/excluir). */
   auditoria: {
@@ -1259,6 +1274,34 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
         return r.meta.changes > 0;
       },
     },
+    alertas: {
+      async responsaveisComPrazos(ate) {
+        const { results } = await db
+          .prepare(
+            `SELECT DISTINCT u.id, u.nome, u.email FROM prazos z
+             JOIN users u ON u.id = z.responsavel_id AND u.tenant_id = z.tenant_id
+             WHERE z.tenant_id = ? AND z.status <> 'concluido' AND z.data_fatal <= ?
+               AND u.ativo = 1 AND u.senha_definida = 1 AND u.perfil IS NOT NULL
+             ORDER BY u.id`,
+          )
+          .bind(tid, ate)
+          .all<ResponsavelDeAlerta>();
+        return results;
+      },
+      async reservarEnvio(userId, dataLocal, qtdPrazos) {
+        const r = await db
+          .prepare(
+            `INSERT INTO alertas_enviados (id, tenant_id, user_id, data_local, qtd_prazos, criado_em) VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT (tenant_id, user_id, data_local) DO NOTHING`,
+          )
+          .bind(crypto.randomUUID(), tid, userId, dataLocal, qtdPrazos, agora())
+          .run();
+        return r.meta.changes > 0;
+      },
+      async liberarEnvio(userId, dataLocal) {
+        await db.prepare("DELETE FROM alertas_enviados WHERE tenant_id = ? AND user_id = ? AND data_local = ?").bind(tid, userId, dataLocal).run();
+      },
+    },
     eventos: {
       ...eventosBase,
       async pesquisar(filtro = {}) {
@@ -1505,6 +1548,34 @@ export function criarAcessoPlataforma(db: D1Database): AcessoPlataforma {
         )
         .run();
       return id;
+    },
+  };
+}
+
+// ---------- Acesso das tarefas agendadas (Cron Trigger) ----------
+
+export interface EscritorioEmOperacao {
+  id: string;
+  nome: string;
+}
+
+/**
+ * ATENÇÃO: acesso SEM filtro de tenant, somente para o Cron Trigger (não há sessão). Só lista quais escritórios
+ * estão em operação; os dados de cada um são lidos depois com `criarRepositorio(db, id)`.
+ */
+export interface AcessoAgendado {
+  /** Escritórios em teste ou ativos (mesma regra do login: suspenso e cancelado ficam de fora), em ordem de id, a partir de `depoisDe`. */
+  escritoriosEmOperacao(depoisDe: string | null, limite: number): Promise<EscritorioEmOperacao[]>;
+}
+
+export function criarAcessoAgendado(db: D1Database): AcessoAgendado {
+  return {
+    async escritoriosEmOperacao(depoisDe, limite) {
+      const { results } = await db
+        .prepare("SELECT id, nome FROM tenants WHERE status IN ('teste', 'ativo') AND id > ? ORDER BY id LIMIT ?")
+        .bind(depoisDe ?? "", Math.min(Math.max(Math.trunc(limite), 1), LIMITE_MAXIMO))
+        .all<EscritorioEmOperacao>();
+      return results;
     },
   };
 }

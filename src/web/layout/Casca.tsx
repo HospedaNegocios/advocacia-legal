@@ -6,6 +6,7 @@ import { Marca } from "../ui";
 import { Link, navegar, useCaminho } from "../roteador";
 import { useSessao } from "../sessao";
 import { MenuUsuario } from "./MenuUsuario";
+import { AvisoDePrazos, useAlertasPrazos } from "./AlertasPrazos";
 
 export interface ItemMenu {
   para?: string;
@@ -14,6 +15,8 @@ export interface ItemMenu {
   /** Módulo ainda não construído (docs/MVP.md): aparece desativado com "Em breve". */
   emBreve?: boolean;
   descricao?: string;
+  /** Contagem exibida em um selo ao lado do nome (ex.: prazos que pedem atenção). */
+  contagem?: number;
 }
 
 const MENU_DONO: ItemMenu[] = [
@@ -44,6 +47,8 @@ export function Casca({ children }: { children: ReactNode }) {
   const [gavetaAberta, setGavetaAberta] = useState(false);
   const botaoMenu = useRef<HTMLButtonElement>(null);
   const primeiraVez = useRef(true);
+  const ehEscritorio = !!eu && !eu.usuario.dono_plataforma;
+  const alertas = useAlertasPrazos(ehEscritorio, eu?.usuario.id ?? "");
 
   useEffect(() => {
     setGavetaAberta(false);
@@ -82,7 +87,7 @@ export function Casca({ children }: { children: ReactNode }) {
 
   const principais: ItemMenu[] = usuario.dono_plataforma
     ? MENU_DONO
-    : [{ para: "/", rotulo: "Início", icone: House }, { para: "/clientes", rotulo: "Clientes", icone: Contact }, { para: "/processos", rotulo: "Processos", icone: Briefcase }, { para: "/prazos", rotulo: "Prazos", icone: Bell }, { para: "/agenda", rotulo: "Agenda", icone: CalendarDays }, { para: "/escritorio", rotulo: "Escritório", icone: Building2 }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
+    : [{ para: "/", rotulo: "Início", icone: House }, { para: "/clientes", rotulo: "Clientes", icone: Contact }, { para: "/processos", rotulo: "Processos", icone: Briefcase }, { para: "/prazos", rotulo: "Prazos", icone: Bell, contagem: alertas.contagem }, { para: "/agenda", rotulo: "Agenda", icone: CalendarDays }, { para: "/escritorio", rotulo: "Escritório", icone: Building2 }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
   const futuros = usuario.dono_plataforma ? [] : MODULOS_BREVE;
 
   const renderItem = (item: ItemMenu) => {
@@ -105,6 +110,14 @@ export function Casca({ children }: { children: ReactNode }) {
         <Link para={item.para} className="nav-item" atual={atual}>
           <Icone size={20} aria-hidden="true" />
           <span className="nav-texto">{item.rotulo}</span>
+          {item.contagem ? (
+            <>
+              <span className="nav-contagem" aria-hidden="true">
+                {item.contagem > 99 ? "99+" : item.contagem}
+              </span>
+              <span className="so-leitor">({item.contagem === 1 ? "1 prazo pede atenção" : `${item.contagem} prazos pedem atenção`})</span>
+            </>
+          ) : null}
           {recolhida && <span className="so-leitor">{item.rotulo}</span>}
         </Link>
       </li>
@@ -167,6 +180,7 @@ export function Casca({ children }: { children: ReactNode }) {
         <main className="conteudo" id="conteudo" tabIndex={-1}>
           {children}
         </main>
+        {ehEscritorio && <AvisoDePrazos dados={alertas.dados} aberto={alertas.aberto} aoFechar={alertas.dispensar} />}
       </div>
     </div>
   );

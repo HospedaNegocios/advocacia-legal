@@ -201,3 +201,14 @@ select.entrada-compacta { min-width: 8.5rem; min-height: 2.25rem; font-size: var
 
 /* Trecho de resposta de erro (diagnóstico): código em bloco discreto. */
 .bloco-codigo { margin: var(--e-3) 0 0; padding: var(--e-3); background: var(--cor-superficie-3); color: var(--cor-texto-2); border-radius: var(--raio-sm); font-family: var(--fonte-mono); font-size: var(--texto-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Página Escritório */
+.subtitulo-form { margin: var(--e-2) 0 0; font-size: var(--texto-base); }
+.uso-oabs { display: flex; flex-wrap: wrap; gap: var(--e-4); align-items: flex-end; justify-content: space-between; }
+.uso-oabs > :first-child { flex: 1 1 16rem; min-width: 0; }
+.uso-oabs-texto { margin: 0; }
+.tabela-borda-total { border: 1px solid var(--cor-borda); border-radius: var(--raio-md); overflow: hidden; }
+@media (max-width: 767px) {
+  .uso-oabs-acao, .uso-oabs-acao .btn { width: 100%; }
+}
+.entrada[readonly] { background: var(--cor-superficie-2); }

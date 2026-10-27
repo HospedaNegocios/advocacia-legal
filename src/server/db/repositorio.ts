@@ -84,9 +84,49 @@ export interface LinhaAuditoria {
   criado_em: string;
 }
 
+export const UFS = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+] as const;
+
+export interface LinhaOab {
+  id: string;
+  tenant_id: string;
+  numero: string;
+  sufixo: string | null;
+  uf: string;
+  advogado_nome: string;
+  user_id: string | null;
+  ativo: number;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface LinhaPerfilEscritorio {
+  tenant_id: string;
+  razao_social: string | null;
+  documento: string | null;
+  email_contato: string | null;
+  telefone: string | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+  atualizado_em: string;
+}
+
+/** Campos do perfil que o escritório pode gravar (tenant_id e atualizado_em são da camada). */
+export const CAMPOS_PERFIL = [
+  "razao_social", "documento", "email_contato", "telefone", "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf",
+] as const;
+export type DadosPerfilEscritorio = { [K in (typeof CAMPOS_PERFIL)[number]]: string | null };
+
 // ---------- Whitelist de tabelas e colunas ----------
 
 interface LinhasPorTabela {
+  oabs: LinhaOab;
   users: LinhaUsuario;
   sessions: LinhaSessao;
   tokens_acesso: LinhaTokenAcesso;
@@ -105,6 +145,12 @@ interface ConfigTabela {
 }
 
 const TABELAS: Readonly<Record<TabelaDoEscritorio, ConfigTabela>> = {
+  oabs: {
+    inserivel: ["id", "numero", "sufixo", "uf", "advogado_nome", "user_id", "ativo", "criado_em", "atualizado_em"],
+    atualizavel: ["numero", "sufixo", "uf", "advogado_nome", "user_id", "ativo"],
+    temAtualizadoEm: true,
+    imutavel: false,
+  },
   users: {
     // 'papel_plataforma' de propósito FORA da lista: o repositório de escritório
     // nunca cria nem promove dono da plataforma.
@@ -142,6 +188,7 @@ const TABELAS: Readonly<Record<TabelaDoEscritorio, ConfigTabela>> = {
 
 // Colunas aceitas em filtros de leitura (além de tenant_id, que é sempre aplicado).
 const COLUNAS_FILTRO: Readonly<Record<TabelaDoEscritorio, readonly string[]>> = {
+  oabs: ["id", "ativo", "user_id", "numero", "uf"],
   users: ["id", "perfil", "email", "ativo"],
   sessions: ["id", "user_id"],
   tokens_acesso: ["id", "user_id", "tipo"],
@@ -226,6 +273,20 @@ export interface Repositorio {
   /** O escritório só altera a exigência de 2FA do próprio registro (nome, plano e status são do dono). */
   definirExigir2fa(exigir: boolean): Promise<boolean>;
   users: RepositorioTabela<LinhaUsuario>;
+  /** Perfil do escritório (1 para 1). Só colunas de `CAMPOS_PERFIL`. */
+  perfil: {
+    buscar(): Promise<LinhaPerfilEscritorio | null>;
+    /** Grava todos os campos (os não informados viram vazios). */
+    salvar(dados: Partial<DadosPerfilEscritorio>): Promise<void>;
+  };
+  /** OABs monitoradas. Os métodos "Respeitando" aplicam o limite do plano de forma atômica. */
+  oabs: RepositorioTabela<LinhaOab> & {
+    contarAtivas(): Promise<number>;
+    /** Insere ativa se as OABs ativas forem menos que `limite` (null = sem limite). Devolve o id, ou null se o limite foi atingido. */
+    inserirRespeitandoLimite(dados: DadosNovos<LinhaOab>, limite: number | null): Promise<string | null>;
+    /** Reativa se as OABs ativas forem menos que `limite`. Falso se o limite foi atingido ou a OAB não existe. */
+    reativarRespeitandoLimite(id: string, limite: number | null): Promise<boolean>;
+  };
   sessions: RepositorioTabela<LinhaSessao>;
   tokens: RepositorioTabela<LinhaTokenAcesso>;
   /** Auditoria: só leitura e registro (sem alterar/excluir). */
@@ -349,6 +410,7 @@ function montarTabela<N extends TabelaDoEscritorio>(
 export function criarRepositorio(db: D1Database, tenantId: string): Repositorio {
   const tid = exigirTenantId(tenantId);
   const auditoriaBase = montarTabela(db, tid, "audit_log");
+  const oabsBase = montarTabela(db, tid, "oabs");
 
   return {
     tenantId: tid,
@@ -364,6 +426,57 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
       return r.meta.changes > 0;
     },
     users: montarTabela(db, tid, "users"),
+    perfil: {
+      async buscar() {
+        return (await db.prepare("SELECT * FROM escritorio_perfil WHERE tenant_id = ?").bind(tid).first<LinhaPerfilEscritorio>()) ?? null;
+      },
+      async salvar(dados) {
+        exigirColunas(CAMPOS_PERFIL, Object.keys(dados), "perfil do escritório");
+        const valores = CAMPOS_PERFIL.map((c) => dados[c] ?? null);
+        const colunas = CAMPOS_PERFIL.join(", ");
+        await db
+          .prepare(
+            `INSERT INTO escritorio_perfil (tenant_id, ${colunas}, atualizado_em) VALUES (?, ${CAMPOS_PERFIL.map(() => "?").join(", ")}, ?)
+             ON CONFLICT (tenant_id) DO UPDATE SET ${CAMPOS_PERFIL.map((c) => `${c} = excluded.${c}`).join(", ")}, atualizado_em = excluded.atualizado_em`,
+          )
+          .bind(tid, ...valores, agora())
+          .run();
+      },
+    },
+    oabs: {
+      ...oabsBase,
+      async contarAtivas() {
+        const l = await db.prepare("SELECT COUNT(*) AS n FROM oabs WHERE tenant_id = ? AND ativo = 1").bind(tid).first<{ n: number }>();
+        return l?.n ?? 0;
+      },
+      async inserirRespeitandoLimite(dados, limite) {
+        const { tenant_id: _ignorado, ...resto } = dados as Record<string, unknown>;
+        const pares = valoresDefinidos(resto).filter(([c]) => !["id", "ativo", "criado_em", "atualizado_em"].includes(c));
+        exigirColunas(TABELAS.oabs.inserivel, pares.map(([c]) => c), "inserção em oabs");
+        const id = crypto.randomUUID();
+        const ts = agora();
+        const colunas = ["id", "tenant_id", ...pares.map(([c]) => c), "ativo", "criado_em", "atualizado_em"];
+        const valores: Valor[] = [id, tid, ...pares.map(([, v]) => v), 1, ts, ts];
+        const r = await db
+          .prepare(
+            `INSERT INTO oabs (${colunas.join(", ")}) SELECT ${colunas.map(() => "?").join(", ")}
+             WHERE ? IS NULL OR (SELECT COUNT(*) FROM oabs WHERE tenant_id = ? AND ativo = 1) < ?`,
+          )
+          .bind(...valores, limite, tid, limite)
+          .run();
+        return r.meta.changes > 0 ? id : null;
+      },
+      async reativarRespeitandoLimite(id, limite) {
+        const r = await db
+          .prepare(
+            `UPDATE oabs SET ativo = 1, atualizado_em = ? WHERE id = ? AND tenant_id = ?
+             AND (? IS NULL OR (SELECT COUNT(*) FROM oabs WHERE tenant_id = ? AND ativo = 1) < ?)`,
+          )
+          .bind(agora(), id, tid, limite, tid, limite)
+          .run();
+        return r.meta.changes > 0;
+      },
+    },
     sessions: montarTabela(db, tid, "sessions"),
     tokens: montarTabela(db, tid, "tokens_acesso"),
     auditoria: {

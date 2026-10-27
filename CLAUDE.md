@@ -19,6 +19,7 @@ SaaS jurídico por assinatura para escritórios de advocacia, cobrado por escrit
 4. **O usuário não é desenvolvedor.** Explicar em português simples, sem jargão; Claude executa tudo de forma automática.
 5. **Segredos nunca no código nem neste arquivo.** Tokens ficam em GitHub Secrets e Cloudflare Secrets. Aqui só nomes e datas.
 6. Idioma do produto, código de interface e mensagens: português do Brasil.
+7. **Toda tela, componente ou gráfico novo segue `docs/DESIGN.md` e a skill `ux-advocacia`** (componentes de `src/web/ui`, tokens de `src/web/estilo/tokens.css`, regras de gráficos, verificação em 375px e 1280px, claro e escuro).
 
 ## Decisões tomadas (2026-10-27)
 
@@ -113,6 +114,7 @@ Rotação do token Cloudflare: a cada 90 dias. Registrar aqui a data da última 
 - [ ] Endereço da empresa e nome do encarregado (DPO) (usuário)
 - [x] Fase 0, parte 1 (fundação) publicada no dev em 2026-10-27 (PR #1): projeto TS/Hono/React/Vitest/Wrangler, `wrangler.jsonc` com envs dev/prod, migrações D1 (`tenants`, `users`, `sessions`, `audit_log`), camada de dados com `tenant_id` obrigatório (`src/server/db/repositorio.ts`) + testes de isolamento, `GET /api/saude`, CI e deploy no GitHub Actions.
 - [x] Fase 0, parte 2 (acesso) publicada no dev em 2026-10-27 (PR #2, revisão de segurança feita): migração `0002_acesso.sql` (tokens de uso único, limite de tentativas por IP, `exigir_2fa`, `senha_definida`, `totp_ultimo_passo`, `sessions.pendente_2fa`); senha PBKDF2-SHA256 (100.000 iterações, mínimo 10 caracteres); sessão em cookie `__Host-sessao` (12 h, só o hash no banco); 2FA TOTP (RFC 6238) com segredo cifrado AES-GCM; bloqueio de 15 min após 5 erros; limite de 20 erros por IP em 15 min; proteção CSRF (Origin + `X-Requested-With: advocacia`); log de auditoria; primeiro acesso do dono e convites por link de uso único; painel do dono (`/api/plataforma/*`); equipe do escritório (`/api/equipe/*`, só sócio); telas em React; workflows `criar-dono` e `configurar-segredos`.
+- [x] Visual moderno (branch `visual-moderno`, ainda não publicada): tokens claro/escuro, casca responsiva, biblioteca `src/web/ui`, gráficos em SVG, painel do dono como dashboard, `docs/DESIGN.md` e skill `ux-advocacia`. Cores da marca são proposta (trocar só em `tokens.css`).
 - [ ] **Para usar em dev:** depois do deploy da `develop` (aplica a migração 0002), rodar no GitHub Actions `configurar-segredos` (dev) e depois `criar-dono` (dev, com o e-mail do dono) e abrir o link do resumo (ver README).
 - [ ] Decisões pendentes do usuário: bloquear escritório com teste grátis vencido (`teste_ate` passou)? limites de usuários por plano (Solo 1, Escritório 5) devem ser impostos nos convites? envio de convite por e-mail (hoje o sócio copia o link)?
 - [ ] **Próximo passo: Fase 1 — núcleo do escritório** (ver `docs/ROADMAP.md`)

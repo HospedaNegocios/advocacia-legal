@@ -1,8 +1,10 @@
+import { ArrowLeft, Building2 } from "lucide-react";
 import { useState } from "react";
 import { ErroApi, api } from "../api";
-import { Aviso, Cartao, Formulario } from "../componentes";
+import { TelaAcesso } from "../layout/TelaAcesso";
 import { navegar } from "../roteador";
 import { useSessao } from "../sessao";
+import { Aviso, Botao, Entrada, Formulario } from "../ui";
 
 type RespostaLogin =
   | { etapa: "ok" | "configurar_2fa" }
@@ -50,33 +52,22 @@ export function Login() {
 
   if (desafio) {
     return (
-      <Cartao titulo="Verificação em duas etapas">
-        <p>Digite o código de 6 dígitos do seu aplicativo autenticador.</p>
+      <TelaAcesso titulo="Verificação em duas etapas" descricao="Digite o código de 6 dígitos do seu aplicativo autenticador.">
         <Formulario
           aoEnviar={() =>
-            executar(async () => {
+            void executar(async () => {
               await tratar(await api<RespostaLogin>("POST", "/api/auth/2fa", { desafio, codigo }));
             })
           }
         >
-          <label>
-            Código
-            <input
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoFocus
-              required
-            />
-          </label>
+          <Entrada rotulo="Código" codigo value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus required />
           {erro && <Aviso>{erro}</Aviso>}
-          <button type="submit" disabled={enviando || codigo.length !== 6}>
+          <Botao type="submit" tamanho="grande" bloco carregando={enviando} disabled={codigo.length !== 6}>
             Confirmar
-          </button>
-          <button
-            type="button"
-            className="secundario"
+          </Botao>
+          <Botao
+            variante="fantasma"
+            bloco
             onClick={() => {
               setDesafio(null);
               setCodigo("");
@@ -84,50 +75,46 @@ export function Login() {
               setErro("");
             }}
           >
+            <ArrowLeft size={16} aria-hidden="true" />
             Voltar
-          </button>
+          </Botao>
         </Formulario>
-      </Cartao>
+      </TelaAcesso>
     );
   }
 
   if (escritorios) {
     return (
-      <Cartao titulo="Escolha o escritório">
-        <p>Este e-mail e esta senha valem em mais de um acesso. Em qual você quer entrar?</p>
+      <TelaAcesso titulo="Escolha o escritório" descricao="Este e-mail e esta senha valem em mais de um acesso. Em qual você quer entrar?">
         {erro && <Aviso>{erro}</Aviso>}
         <ul className="lista-escolha">
           {escritorios.map((e) => (
             <li key={e.id}>
-              <button type="button" disabled={enviando} onClick={() => void entrar(e.id)}>
+              <Botao variante="secundario" tamanho="grande" bloco disabled={enviando} onClick={() => void entrar(e.id)}>
+                <Building2 size={18} aria-hidden="true" />
                 {e.nome}
-              </button>
+              </Botao>
             </li>
           ))}
         </ul>
-        <button type="button" className="secundario" onClick={() => setEscritorios(null)}>
+        <Botao variante="fantasma" bloco onClick={() => setEscritorios(null)}>
+          <ArrowLeft size={16} aria-hidden="true" />
           Voltar
-        </button>
-      </Cartao>
+        </Botao>
+      </TelaAcesso>
     );
   }
 
   return (
-    <Cartao titulo="Entrar">
+    <TelaAcesso titulo="Entrar" descricao="Acesse o sistema com o seu e-mail e a sua senha.">
       <Formulario aoEnviar={() => void entrar()}>
-        <label>
-          E-mail
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus required />
-        </label>
-        <label>
-          Senha
-          <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="current-password" required />
-        </label>
+        <Entrada rotulo="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" placeholder="voce@escritorio.com.br" autoFocus required />
+        <Entrada rotulo="Senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="current-password" required />
         {erro && <Aviso>{erro}</Aviso>}
-        <button type="submit" disabled={enviando}>
+        <Botao type="submit" tamanho="grande" bloco carregando={enviando}>
           {enviando ? "Entrando..." : "Entrar"}
-        </button>
+        </Botao>
       </Formulario>
-    </Cartao>
+    </TelaAcesso>
   );
 }

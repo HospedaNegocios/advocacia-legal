@@ -7,7 +7,7 @@ export function limiteDeOabs(plano: Plano): number | null {
   return null;
 }
 
-const NOME_PLANO: Record<Plano, string> = { solo: "Solo", escritorio: "Escritório", banca: "Banca" };
+const NOME_PLANO: Record<Plano, string> = { solo: "Individual", escritorio: "Equipe", banca: "Sociedade" };
 
 export function mensagemLimiteDeOabs(plano: Plano): string {
   const limite = limiteDeOabs(plano);

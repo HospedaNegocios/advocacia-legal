@@ -112,7 +112,7 @@ describe("OABs", () => {
       }
       const estouro = await chamar("POST", "/api/escritorio/oabs", { cookie: socio.cookie, corpo: oab("99") });
       expect(estouro.status).toBe(409);
-      expect(estouro.json.erro).toContain(plano === "solo" ? "plano Solo" : "plano Escritório");
+      expect(estouro.json.erro).toContain(plano === "solo" ? "plano Individual" : "plano Equipe");
       await chamar("DELETE", `/api/escritorio/oabs/${ids[0]}`, { cookie: socio.cookie });
       expect((await chamar("POST", "/api/escritorio/oabs", { cookie: socio.cookie, corpo: oab("99") })).status).toBe(201);
       const reativar = await chamar("PUT", `/api/escritorio/oabs/${ids[0]}`, { cookie: socio.cookie, corpo: oab("1", { ativo: true }) });

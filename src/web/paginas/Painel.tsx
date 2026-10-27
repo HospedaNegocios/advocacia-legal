@@ -7,7 +7,7 @@ import { Abas, Barras, Botao, CabecalhoPagina, Cartao, EsqueletoKpi, EsqueletoLi
 import { TabelaEscritorios, useEscritorios, useModaisEscritorios } from "./escritorios-comum";
 
 const ORDEM_PLANOS: Plano[] = ["solo", "escritorio", "banca"];
-// Planos têm ordem natural (Solo < Escritório < Banca): usam a rampa ORDINAL, não cores de identidade.
+// Planos têm ordem natural (Individual < Equipe < Sociedade): usam a rampa ORDINAL, não cores de identidade.
 const COR_PLANO: Record<Plano, string> = { solo: "var(--ordinal-1)", escritorio: "var(--ordinal-2)", banca: "var(--ordinal-3)" };
 
 export function Painel() {

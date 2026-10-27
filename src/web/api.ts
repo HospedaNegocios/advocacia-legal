@@ -62,7 +62,7 @@ export const ROTULO_PERFIL: Record<Perfil, string> = {
   estagiario: "Estagiário",
   secretaria: "Secretaria",
 };
-export const ROTULO_PLANO: Record<Plano, string> = { solo: "Solo", escritorio: "Escritório", banca: "Banca" };
+export const ROTULO_PLANO: Record<Plano, string> = { solo: "Individual", escritorio: "Equipe", banca: "Sociedade" };
 export const ROTULO_STATUS: Record<Status, string> = {
   teste: "Em teste",
   ativo: "Ativo",

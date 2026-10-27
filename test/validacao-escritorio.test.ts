@@ -49,6 +49,6 @@ describe("limites de OABs por plano", () => {
     expect(limiteDeOabs("solo")).toBe(1);
     expect(limiteDeOabs("escritorio")).toBe(3);
     expect(limiteDeOabs("banca")).toBeNull();
-    expect(mensagemLimiteDeOabs("solo")).toContain("plano Solo");
+    expect(mensagemLimiteDeOabs("solo")).toContain("plano Individual");
   });
 });

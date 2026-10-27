@@ -6,6 +6,7 @@ import { Aviso, Botao, Modal, Selo, SeletorBusca, useToast } from "../ui";
 import { Dado } from "./abas-comuns";
 import { buscarProcessos } from "./buscas";
 import { cnjFormatado } from "./processos-comum";
+import { ResumoIntimacao } from "./ResumoIntimacao";
 
 export interface OabIntimacao {
   id: string;
@@ -141,6 +142,7 @@ export function IntimacaoDetalhe({ intimacao, aberto, aoFechar, aoMudar }: { int
           <h3 className="intimacao-titulo-texto">Texto publicado</h3>
           {i.texto ? <div className="intimacao-texto" tabIndex={0}>{i.texto}</div> : <p className="texto-pequeno">A publicação não trouxe texto.</p>}
         </section>
+        <ResumoIntimacao intimacaoId={i.id} temTexto={Boolean(i.texto && i.texto.trim())} />
         {i.link && (
           <p style={{ margin: 0 }}>
             <a href={i.link} target="_blank" rel="noopener noreferrer">

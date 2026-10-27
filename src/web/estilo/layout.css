@@ -2,6 +2,11 @@
 
 .casca { min-height: 100vh; display: grid; grid-template-columns: var(--lateral-larga) minmax(0, 1fr); transition: grid-template-columns var(--dur) var(--ease); }
 .casca.recolhida { grid-template-columns: var(--lateral-estreita) minmax(0, 1fr); }
+/* Faixa escura da lateral por toda a altura da página, mesmo em páginas longas */
+@media (min-width: 768px) {
+  .casca { background: linear-gradient(to right, var(--cor-lateral) var(--lateral-larga), transparent var(--lateral-larga)); }
+  .casca.recolhida { background: linear-gradient(to right, var(--cor-lateral) var(--lateral-estreita), transparent var(--lateral-estreita)); }
+}
 
 .lateral {
   position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column;

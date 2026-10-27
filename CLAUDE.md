@@ -88,7 +88,7 @@ A conta Cloudflare é **compartilhada com outros projetos** do usuário (Workers
 
 ## DJEN (intimações)
 
-Verificação de termos feita em 2026-10-27 — ver `docs/DJEN.md`. Resumo: API pública de consulta `https://comunicaapi.pje.jus.br/api/v1/comunicacao`, sem autenticação; **não foram encontrados termos de uso nem limite oficial publicados**. Integradores relatam bloqueio (HTTP 403) para IPs fora do Brasil → **primeira tarefa técnica do módulo DJEN é testar a chamada a partir de um Worker em dev.**
+Verificação de termos feita em 2026-10-27 — ver `docs/DJEN.md`. Resumo: API pública de consulta `https://comunicaapi.pje.jus.br/api/v1/comunicacao`, sem autenticação; **não foram encontrados termos de uso nem limite oficial publicados**. Integradores relatam bloqueio (HTTP 403) para IPs fora do Brasil → Teste feito em 2026-10-27 a partir do Worker de dev: **HTTP 200 em 4 de 4 chamadas, sem bloqueio** (ver `docs/DJEN.md`).
 
 ## Tokens e acessos
 

@@ -31,7 +31,7 @@
 
 Rota do dono da plataforma (com 2FA): `POST /api/plataforma/diagnostico/djen`, tela **Diagnóstico** no app. Faz uma única consulta ao DJEN (TJSP, publicações de hoje no fuso de São Paulo, 5 itens) e devolve código HTTP, tempo, data center da Cloudflare (`colo`), país, quantidade de itens e, se falhar, os primeiros 300 caracteres da resposta. Limite de 1 teste a cada 10 s. Não guarda o conteúdo da resposta; só registra `status` e tempo no log de auditoria.
 
-Resultado: pendente
+Resultado (2026-10-27, Worker `advocacia-legal-dev`): **4 chamadas, todas HTTP 200**, entre 52 ms e 181 ms (fonte: `audit_log`, ação `diagnostico_djen`). Não houve bloqueio 403. Ainda falta confirmar o formato do JSON (campo da lista de itens) antes de construir o módulo.
 
 ## Fontes
 

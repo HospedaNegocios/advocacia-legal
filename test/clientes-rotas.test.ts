@@ -30,7 +30,7 @@ async function enviar(cookie: string, clienteId: string, nome: string, bytes: Ui
   const r = await SELF.fetch(`${ORIGEM}/api/clientes/${clienteId}/anexos`, {
     method: "POST",
     headers: { Origin: ORIGEM, "X-Requested-With": "advocacia", Cookie: cookie, "CF-Connecting-IP": novoIp(), "X-Nome-Arquivo": encodeURIComponent(nome), "Content-Type": "application/octet-stream", ...extra },
-    body: bytes,
+    body: bytes as BodyInit,
   });
   const json: any = await r.json();
   return { status: r.status, json };

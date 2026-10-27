@@ -28,6 +28,24 @@ export async function api<T = Record<string, unknown>>(metodo: string, caminho: 
   return json as T;
 }
 
+/** Envia um arquivo (bytes no corpo; nome em X-Nome-Arquivo). */
+export async function enviarArquivo<T = Record<string, unknown>>(caminho: string, arquivo: File): Promise<T> {
+  let r: Response;
+  try {
+    r = await fetch(caminho, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "X-Requested-With": "advocacia", "X-Nome-Arquivo": encodeURIComponent(arquivo.name), "Content-Type": "application/octet-stream" },
+      body: arquivo,
+    });
+  } catch {
+    throw new ErroApi("Não foi possível falar com o servidor. Confira sua internet.", 0);
+  }
+  const json = (await r.json().catch(() => null)) as (T & { erro?: string }) | null;
+  if (!r.ok) throw new ErroApi(json?.erro ?? "Algo deu errado. Tente novamente.", r.status);
+  return json as T;
+}
+
 export type Perfil = "socio" | "advogado" | "estagiario" | "secretaria";
 export type Plano = "solo" | "escritorio" | "banca";
 export type Status = "teste" | "ativo" | "suspenso" | "cancelado";

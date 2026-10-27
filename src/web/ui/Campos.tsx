@@ -1,6 +1,6 @@
 import { CircleAlert } from "lucide-react";
 import { useId } from "react";
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 interface PropsCampo {
   rotulo: string;
@@ -45,6 +45,17 @@ export function Entrada({ rotulo, ajuda, erro, codigo, ...resto }: PropsEntrada)
   return (
     <Moldura id={id} rotulo={rotulo} ajuda={ajuda} erro={erro}>
       <input {...resto} id={id} className={`entrada${codigo ? " entrada-codigo" : ""}`} aria-invalid={erro ? true : undefined} aria-describedby={descritoPor(id, ajuda, erro)} />
+    </Moldura>
+  );
+}
+
+export interface PropsAreaTexto extends PropsCampo, Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "className"> {}
+/** Campo de texto com várias linhas, com rótulo e erro ligados por aria. */
+export function AreaTexto({ rotulo, ajuda, erro, ...resto }: PropsAreaTexto) {
+  const id = useId();
+  return (
+    <Moldura id={id} rotulo={rotulo} ajuda={ajuda} erro={erro}>
+      <textarea rows={4} {...resto} id={id} className="entrada entrada-area" aria-invalid={erro ? true : undefined} aria-describedby={descritoPor(id, ajuda, erro)} />
     </Moldura>
   );
 }

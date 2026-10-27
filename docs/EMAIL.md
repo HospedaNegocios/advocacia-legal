@@ -1,4 +1,28 @@
-# E-mail (Cloudflare Email Service)
+# E-mail
+
+## Decisão atual (2026-10-27)
+
+Palavras do usuário: "envio de email apenas na versão workers paid. podemos deixar isso para depois e utilizar o resend. vamos deixar por padrão desativado e o usuário ativa se necessário".
+
+Interpretação adotada (a confirmar com o usuário):
+- O envio de e-mail será feito pelo **Resend**, não pelo Cloudflare Email Service.
+- Fica para uma fase posterior.
+- Desativado por padrão; cada pessoa da equipe ativa, na própria conta, o e-mail diário de prazos (opt-in por usuário).
+- Até lá, o aviso de prazos é só o popup na tela.
+- O código atual (`EnviadorEmail`, `EMAIL_ALERTAS_ATIVO=false`, binding `send_email`) não foi alterado.
+
+O passo a passo da Cloudflare abaixo está **suspenso**; foi mantido só como referência histórica.
+
+## O que vai ser preciso com o Resend (a fazer depois)
+- O usuário cria a conta no Resend e verifica o domínio.
+- A chave de API fica em segredo da Cloudflare, com o nome `RESEND_API_KEY`. Nunca no código.
+- Na hora de implementar, consultar a documentação oficial do Resend (resend.com/docs). Não inventar a API, preços nem limites.
+- Opção por usuário no perfil para receber o e-mail diário (padrão desligado).
+- Link de descadastro no e-mail.
+
+---
+
+## Referência histórica (suspenso): Cloudflare Email Service
 
 Verificado na documentação oficial da Cloudflare em 2026-10-27 (developers.cloudflare.com/email-service/). O serviço aparece como **Beta** na navegação da doc.
 

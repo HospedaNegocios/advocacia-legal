@@ -18,6 +18,8 @@ export { ProvedorToast, useToast } from "./Toast";
 export { Indicador } from "./Indicador";
 export { Barras } from "./graficos/Barras";
 export type { DadoBarra } from "./graficos/Barras";
+export { BarrasAgrupadas } from "./graficos/BarrasAgrupadas";
+export type { SerieAgrupada } from "./graficos/BarrasAgrupadas";
 export { Linha } from "./graficos/Linha";
 export { Empilhada } from "./graficos/Empilhada";
 export type { Segmento } from "./graficos/Empilhada";

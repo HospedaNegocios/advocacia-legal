@@ -26,7 +26,6 @@ const MENU_DONO: ItemMenu[] = [
 ];
 
 const MODULOS_BREVE: ItemMenu[] = [
-  { rotulo: "Financeiro", icone: Wallet, emBreve: true, descricao: "Honorários e caixa" },
   { rotulo: "Intimações", icone: Gavel, emBreve: true, descricao: "Intimações do DJEN" },
 ];
 
@@ -87,7 +86,7 @@ export function Casca({ children }: { children: ReactNode }) {
 
   const principais: ItemMenu[] = usuario.dono_plataforma
     ? MENU_DONO
-    : [{ para: "/", rotulo: "Início", icone: House }, { para: "/clientes", rotulo: "Clientes", icone: Contact }, { para: "/processos", rotulo: "Processos", icone: Briefcase }, { para: "/prazos", rotulo: "Prazos", icone: Bell, contagem: alertas.contagem }, { para: "/agenda", rotulo: "Agenda", icone: CalendarDays }, { para: "/escritorio", rotulo: "Escritório", icone: Building2 }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
+    : [{ para: "/", rotulo: "Início", icone: House }, { para: "/clientes", rotulo: "Clientes", icone: Contact }, { para: "/processos", rotulo: "Processos", icone: Briefcase }, { para: "/prazos", rotulo: "Prazos", icone: Bell, contagem: alertas.contagem }, { para: "/agenda", rotulo: "Agenda", icone: CalendarDays }, ...(eu.permissoes.financeiro !== "nenhum" ? [{ para: "/financeiro", rotulo: "Financeiro", icone: Wallet }] : []), { para: "/escritorio", rotulo: "Escritório", icone: Building2 }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
   const futuros = usuario.dono_plataforma ? [] : MODULOS_BREVE;
 
   const renderItem = (item: ItemMenu) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mascaraCep, mascaraDocumento, mascaraTelefone } from "../src/web/mascaras";
+import { centavosParaMoeda, mascaraCep, mascaraCnj, mascaraDocumento, mascaraMoeda, mascaraTelefone, moedaParaCentavos } from "../src/web/mascaras";
 
 describe("máscaras", () => {
   it("documento: CPF e CNPJ", () => {
@@ -17,5 +17,23 @@ describe("máscaras", () => {
     expect(mascaraTelefone("12992198038")).toBe("(12) 99219-8038");
     expect(mascaraTelefone("")).toBe("");
     expect(mascaraTelefone("12")).toBe("(12");
+  });
+  it("número CNJ", () => {
+    expect(mascaraCnj("00000017820208260100")).toBe("0000001-78.2020.8.26.0100");
+    expect(mascaraCnj("0000001-78.2020.8.26.0100999")).toBe("0000001-78.2020.8.26.0100");
+    expect(mascaraCnj("00000017")).toBe("0000001-7");
+    expect(mascaraCnj("0000001782020")).toBe("0000001-78.2020");
+    expect(mascaraCnj("")).toBe("");
+  });
+  it("moeda em reais e centavos", () => {
+    expect(mascaraMoeda("1")).toBe("0,01");
+    expect(mascaraMoeda("123456")).toBe("1.234,56");
+    expect(mascaraMoeda("100000000")).toBe("1.000.000,00");
+    expect(mascaraMoeda("")).toBe("");
+    expect(moedaParaCentavos("1.234,56")).toBe(123456);
+    expect(moedaParaCentavos("")).toBeNull();
+    expect(centavosParaMoeda(123456)).toBe("1.234,56");
+    expect(centavosParaMoeda(0)).toBe("0,00");
+    expect(centavosParaMoeda(null)).toBe("");
   });
 });

@@ -22,6 +22,7 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | `src/web/ui/graficos/` | Gráficos em SVG/HTML próprios |
 | `src/web/layout/` | Casca (menu lateral, barra superior), tela de acesso, menu do usuário |
 | `src/web/tema.tsx`, `public/tema.js` | Tema Sistema/Claro/Escuro (salvo em `localStorage`, com try/catch) |
+| `src/web/estilo/agenda.css` | Kanban de prazos, Agenda e Início |
 | `src/web/painel.ts` | Cálculos do painel do dono (com testes em `test/painel-calculos.test.ts`) |
 
 ## Tokens
@@ -51,6 +52,7 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | `Aviso`, `useToast` | Aviso em linha; notificação temporária |
 | `Modal`, `Confirmar` | Diálogo com foco preso, Esc fecha, devolve o foco |
 | `Abas` (abaixo de 768px as abas quebram de linha, todas visíveis), `Passos`, `Avatar`, `CabecalhoPagina` (com migalhas), `CopiarLink` | Navegação e identificação |
+| `SeletorBusca` | Escolher processo/cliente por busca (lista de resultados, trocar/remover) |
 | `Barras`, `Empilhada`, `Linha`, `Sparkline`, `Medidor` | Gráficos (abaixo) |
 
 ## Regras de gráficos (resumo do guia dataviz)

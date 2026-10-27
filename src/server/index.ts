@@ -11,6 +11,9 @@ import { rotasEquipe } from "./rotas/equipe";
 import { rotasEscritorio } from "./rotas/escritorio";
 import { rotasClientes } from "./rotas/clientes";
 import { rotasProcessos } from "./rotas/processos";
+import { rotasPrazos } from "./rotas/prazos";
+import { rotasAgenda } from "./rotas/agenda";
+import { rotasInicio } from "./rotas/inicio";
 
 // REGRA DE SEGURANÇA: o escritório (tenant) vem SEMPRE da sessão do usuário (cookie validado
 // no banco), nunca de parâmetro, corpo, cabeçalho ou cookie escolhido pelo navegador.
@@ -36,6 +39,9 @@ app.route("/api/equipe", rotasEquipe);
 app.route("/api/escritorio", rotasEscritorio);
 app.route("/api/clientes", rotasClientes);
 app.route("/api/processos", rotasProcessos);
+app.route("/api/prazos", rotasPrazos);
+app.route("/api/agenda", rotasAgenda);
+app.route("/api/inicio", rotasInicio);
 
 app.notFound((c) => {
   // Rotas /api desconhecidas devolvem JSON; o restante é tratado pelos arquivos estáticos (SPA).

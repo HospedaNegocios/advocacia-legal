@@ -1,26 +1,74 @@
-import { Building2, ShieldAlert, ShieldCheck, UserRound, UsersRound } from "lucide-react";
-import { useEffect, useState } from "react";
-import { ROTULO_PERFIL, api } from "../api";
+import { AlarmClock, AlarmClockOff, Briefcase, CalendarClock, CalendarDays, Contact } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ErroApi, api } from "../api";
 import { MODULOS_EM_BREVE } from "../layout/Casca";
 import { Link } from "../roteador";
 import { useSessao } from "../sessao";
-import { Aviso, Cartao, CabecalhoPagina, Indicador, Selo, SeloSituacao } from "../ui";
+import { Aviso, Barras, Cartao, CabecalhoPagina, Botao, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Indicador, Selo } from "../ui";
+import { SeloPrazo, dataFatalTexto } from "./agenda-comum";
+import type { Evento, Prazo, UsuarioBasico } from "./agenda-comum";
+import { EventoDetalhe, ItemEvento } from "./EventoDetalhe";
+import { EventoFormulario } from "./EventoFormulario";
+import { cnjFormatado, FASES } from "./processos-comum";
+import type { Fase } from "./processos-comum";
+
+interface ResumoInicio {
+  hoje: string;
+  prazos: { vencidos: number; vencem_hoje: number; proximos_7_dias: number; lista_vencidos: Prazo[]; lista_hoje: Prazo[]; lista_proximos: Prazo[] };
+  eventos: Evento[];
+  processos: { ativos: number; por_fase: Record<Fase, number> };
+  clientes: { ativos: number };
+}
+
+function ListaPrazos({ prazos, vazio, mostrarData }: { prazos: Prazo[]; vazio: string; mostrarData?: boolean }) {
+  if (prazos.length === 0) return <p className="inicio-vazio">{vazio}</p>;
+  return (
+    <ul className="inicio-lista">
+      {prazos.map((p) => (
+        <li key={p.id} className="inicio-item">
+          <div className="inicio-item-texto">
+            <strong>{p.titulo}</strong>
+            <small>
+              {mostrarData ? `${dataFatalTexto(p)} · ` : p.hora ? `${p.hora} · ` : ""}
+              {p.processo_numero ? `Processo ${cnjFormatado(p.processo_numero)} · ` : ""}
+              {p.responsavel_nome}
+            </small>
+          </div>
+          <SeloPrazo prazo={p} />
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function Inicio() {
   const { eu } = useSessao();
-  const [equipe, setEquipe] = useState<number | null>(null);
-  const socio = eu?.usuario.perfil === "socio";
+  const [dados, setDados] = useState<ResumoInicio | null>(null);
+  const [erro, setErro] = useState("");
+  const [aberto, setAberto] = useState<Evento | null>(null);
+  const [editando, setEditando] = useState<Evento | null>(null);
+  const [usuarios, setUsuarios] = useState<UsuarioBasico[]>([]);
 
   useEffect(() => {
-    if (!socio) return;
-    api<{ usuarios: { ativo: boolean }[] }>("GET", "/api/equipe/usuarios")
-      .then((r) => setEquipe(r.usuarios.filter((u) => u.ativo).length))
-      .catch(() => setEquipe(null));
-  }, [socio]);
+    api<{ usuarios: UsuarioBasico[] }>("GET", "/api/processos/responsaveis-disponiveis")
+      .then((r) => setUsuarios(r.usuarios))
+      .catch(() => setUsuarios([]));
+  }, []);
+
+  const carregar = useCallback(async () => {
+    try {
+      setDados(await api<ResumoInicio>("GET", "/api/inicio"));
+      setErro("");
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : "Algo deu errado.");
+    }
+  }, []);
+  useEffect(() => void carregar(), [carregar]);
 
   if (!eu) return null;
   const { usuario, escritorio } = eu;
   const primeiroNome = usuario.nome.trim().split(/\s+/)[0] ?? usuario.nome;
+  const verPrazos = <Link para="/prazos">Ver todos os prazos</Link>;
 
   return (
     <>
@@ -32,48 +80,136 @@ export function Inicio() {
         </Aviso>
       )}
 
-      <section aria-label="Resumo" className="grade grade-kpi">
-        {escritorio && (
-          <Indicador rotulo="Escritório" valor={escritorio.nome} icone={Building2}>
-            <div>
-              <SeloSituacao status={escritorio.status} />
-            </div>
-          </Indicador>
-        )}
-        <Indicador rotulo="Seu perfil" valor={usuario.perfil ? ROTULO_PERFIL[usuario.perfil] : "—"} icone={UserRound} nota={usuario.email} />
-        <Indicador rotulo="Verificação em duas etapas" valor={usuario.totp_ativo ? "Ativa" : "Não ativada"} icone={usuario.totp_ativo ? ShieldCheck : ShieldAlert}>
-          <div>
-            {usuario.totp_ativo ? (
-              <Selo tom="bom" icone={ShieldCheck}>
-                Conta protegida
-              </Selo>
+      {erro ? (
+        <EstadoErro acao={<Botao variante="secundario" onClick={() => void carregar()}>Tentar de novo</Botao>}>{erro}</EstadoErro>
+      ) : (
+        <>
+          <section aria-label="Resumo do escritório" className="grade grade-kpi">
+            {dados ? (
+              <>
+                <Indicador rotulo="Prazos vencidos" valor={dados.prazos.vencidos} icone={AlarmClockOff} nota="não concluídos">
+                  {dados.prazos.vencidos > 0 && (
+                    <div>
+                      <Selo tom="critico" icone={AlarmClockOff}>
+                        Atenção
+                      </Selo>
+                    </div>
+                  )}
+                </Indicador>
+                <Indicador rotulo="Vencem hoje" valor={dados.prazos.vencem_hoje} icone={AlarmClock} nota="não concluídos">
+                  {dados.prazos.vencem_hoje > 0 && (
+                    <div>
+                      <Selo tom="aviso" icone={AlarmClock}>
+                        Vence hoje
+                      </Selo>
+                    </div>
+                  )}
+                </Indicador>
+                <Indicador rotulo="Próximos 7 dias" valor={dados.prazos.proximos_7_dias} icone={CalendarClock} nota="a partir de amanhã" />
+                <Indicador rotulo="Processos ativos" valor={dados.processos.ativos} icone={Briefcase} />
+                <Indicador rotulo="Clientes ativos" valor={dados.clientes.ativos} icone={Contact} />
+              </>
             ) : (
-              <Selo tom="aviso" icone={ShieldAlert}>
-                Recomendado ativar
-              </Selo>
+              <>
+                <EsqueletoKpi />
+                <EsqueletoKpi />
+                <EsqueletoKpi />
+                <EsqueletoKpi />
+                <EsqueletoKpi />
+              </>
             )}
-          </div>
-        </Indicador>
-        {socio && equipe !== null && (
-          <Indicador rotulo="Equipe" valor={equipe} icone={UsersRound} nota="usuários ativos">
-            <Link para="/equipe">Gerenciar a equipe</Link>
-          </Indicador>
-        )}
-      </section>
+          </section>
 
-      <Cartao titulo="Módulos do escritório" subtitulo="Estes módulos estão sendo construídos e ficarão disponíveis aqui.">
-        <div className="cartoes-modulos">
-          {MODULOS_EM_BREVE.map(({ rotulo, icone: Icone, descricao }) => (
-            <div className="modulo" key={rotulo}>
-              <Icone size={22} aria-hidden="true" />
-              <div>
-                <strong>{rotulo}</strong>
-                <small>{descricao} · em breve</small>
+          {!dados ? (
+            <EsqueletoLinhas linhas={4} />
+          ) : (
+            <>
+              {dados.prazos.vencidos > 0 && (
+                <Cartao titulo="Prazos vencidos" subtitulo="Ainda não concluídos, do mais antigo ao mais recente" acoes={verPrazos}>
+                  <ListaPrazos prazos={dados.prazos.lista_vencidos} vazio="" mostrarData />
+                  {dados.prazos.vencidos > dados.prazos.lista_vencidos.length && <p className="texto-pequeno">Mostrando {dados.prazos.lista_vencidos.length} de {dados.prazos.vencidos}.</p>}
+                </Cartao>
+              )}
+
+              <div className="grade grade-2">
+                <Cartao titulo="Vence hoje" subtitulo="Prazos com data fatal hoje" acoes={verPrazos}>
+                  <ListaPrazos prazos={dados.prazos.lista_hoje} vazio="Nenhum prazo vence hoje." />
+                </Cartao>
+                <Cartao titulo="Próximos 7 dias" subtitulo="A partir de amanhã" acoes={verPrazos}>
+                  <ListaPrazos prazos={dados.prazos.lista_proximos} vazio="Nenhum prazo nos próximos 7 dias." mostrarData />
+                </Cartao>
               </div>
-            </div>
-          ))}
-        </div>
-      </Cartao>
+
+              <div className="grade grade-2">
+                <Cartao titulo="Próximos compromissos" subtitulo="Audiências, reuniões e diligências" acoes={<Link para="/agenda">Abrir a agenda</Link>}>
+                  {dados.eventos.length === 0 ? (
+                    <EstadoVazio compacto icone={CalendarDays} titulo="Nenhum compromisso à vista">
+                      Os eventos cadastrados na agenda aparecem aqui.
+                    </EstadoVazio>
+                  ) : (
+                    <ul className="agenda-lista" aria-label="Próximos compromissos">
+                      {dados.eventos.map((e) => (
+                        <li key={e.id}>
+                          <ItemEvento evento={e} aoAbrir={setAberto} mostrarData />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Cartao>
+                <Cartao>
+                  {dados.processos.ativos > 0 ? (
+                    <Barras titulo="Processos ativos por fase" subtitulo="Quantidade de processos em cada fase" medida="Processos" categoria="Fase" dados={FASES.map((f) => ({ chave: f, rotulo: f, valor: dados.processos.por_fase[f] }))} />
+                  ) : (
+                    <EstadoVazio compacto icone={Briefcase} titulo="Nenhum processo ativo" acao={<Link para="/processos">Cadastrar processo</Link>}>
+                      Quando houver processos, a distribuição por fase aparece aqui.
+                    </EstadoVazio>
+                  )}
+                </Cartao>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {MODULOS_EM_BREVE.length > 0 && (
+        <Cartao titulo="Em breve" subtitulo="Estes módulos estão sendo construídos e ficarão disponíveis aqui.">
+          <div className="cartoes-modulos">
+            {MODULOS_EM_BREVE.map(({ rotulo, icone: Icone, descricao }) => (
+              <div className="modulo" key={rotulo}>
+                <Icone size={22} aria-hidden="true" />
+                <div>
+                  <strong>{rotulo}</strong>
+                  <small>{descricao} · em breve</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Cartao>
+      )}
+
+      <EventoDetalhe
+        evento={aberto}
+        aoFechar={() => setAberto(null)}
+        aoEditar={(e) => {
+          setAberto(null);
+          setEditando(e);
+        }}
+        aoApagado={() => {
+          setAberto(null);
+          void carregar();
+        }}
+      />
+      <EventoFormulario
+        aberto={editando !== null}
+        evento={editando}
+        dataPadrao={dados?.hoje ?? ""}
+        usuarios={usuarios}
+        aoFechar={() => setEditando(null)}
+        aoSalvar={() => {
+          setEditando(null);
+          void carregar();
+        }}
+      />
     </>
   );
 }

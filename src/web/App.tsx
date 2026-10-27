@@ -7,6 +7,8 @@ import { ClienteDetalhe } from "./paginas/ClienteDetalhe";
 import { Clientes } from "./paginas/Clientes";
 import { ProcessoDetalhe } from "./paginas/ProcessoDetalhe";
 import { Processos } from "./paginas/Processos";
+import { Agenda } from "./paginas/Agenda";
+import { Prazos } from "./paginas/Prazos";
 import { Diagnostico } from "./paginas/Diagnostico";
 import { Equipe } from "./paginas/Equipe";
 import { Escritorio } from "./paginas/Escritorio";
@@ -63,6 +65,8 @@ function Rotas() {
   else if (caminho.startsWith("/clientes/") && !dono) conteudo = <ClienteDetalhe id={caminho.slice("/clientes/".length)} />;
   else if (caminho === "/processos" && !dono) conteudo = <Processos />;
   else if (caminho.startsWith("/processos/") && !dono) conteudo = <ProcessoDetalhe id={caminho.slice("/processos/".length)} />;
+  else if (caminho === "/prazos" && !dono) conteudo = <Prazos />;
+  else if (caminho === "/agenda" && !dono) conteudo = <Agenda />;
   else if (caminho === "/seguranca") conteudo = <Configurar2fa obrigatorio={false} />;
   return <Casca>{conteudo}</Casca>;
 }

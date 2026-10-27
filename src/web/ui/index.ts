@@ -29,3 +29,5 @@ export { CopiarLink } from "./CopiarLink";
 export { Confirmar } from "./Confirmar";
 export type { TomSelo } from "./Selo";
 export { Marca } from "./Marca";
+export { SeletorBusca } from "./SeletorBusca";
+export type { OpcaoBusca } from "./SeletorBusca";

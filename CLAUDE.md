@@ -37,6 +37,10 @@ SaaS jurídico por assinatura para escritórios de advocacia, cobrado por escrit
 | Alerta de prazos | E-mail diário às **07:00 (America/Sao_Paulo)** + **popup na tela** quando o usuário estiver com o sistema aberto |
 | Site de vendas | Contato por WhatsApp **(12) 99219-8038** e e-mail **comercial@advocacia.legal**. **Sem formulário** |
 | Retenção após cancelamento | **90 dias**, depois exclusão |
+| Kanban de prazos | Colunas: **A fazer, Em andamento, Aguardando, Concluído** (aprovado em 2026-10-27) |
+| Fases do processo | **Conhecimento, Recursal, Execução, Suspenso, Arquivado** (aprovado em 2026-10-27) |
+| Anexos | Até **7 MB** por arquivo; PDF, imagens, Word e Excel (aprovado em 2026-10-27) |
+| Agenda | Integração com **Google Agenda** em fase posterior; modelar eventos de forma compatível (data/hora com fuso, id externo opcional) |
 
 ## Planos (aprovados pelo usuário)
 

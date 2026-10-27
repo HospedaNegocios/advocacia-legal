@@ -61,6 +61,13 @@ const dataOuNula = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v
 
 // ---------- Rotas fixas (antes de /:id) ----------
 
+/** Só a contagem de não lidas (selo do menu, consultada de tempos em tempos). */
+rotasIntimacoes.get("/contagem", async (c) => {
+  const hoje = hojeEm(FUSO_PADRAO);
+  const r = await repoDaSessao(c).intimacoes.resumo(hoje, somarDias(hoje, -6));
+  return c.json({ ok: true, nao_lidas: r.nao_lidas });
+});
+
 rotasIntimacoes.get("/resumo", async (c) => {
   const repo = repoDaSessao(c);
   const hoje = hojeEm(FUSO_PADRAO);

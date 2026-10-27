@@ -7,6 +7,7 @@ import { Link, navegar, useCaminho } from "../roteador";
 import { useSessao } from "../sessao";
 import { MenuUsuario } from "./MenuUsuario";
 import { AvisoDePrazos, useAlertasPrazos } from "./AlertasPrazos";
+import { useContagemIntimacoes } from "./contagem-intimacoes";
 
 export interface ItemMenu {
   para?: string;
@@ -17,6 +18,8 @@ export interface ItemMenu {
   descricao?: string;
   /** Contagem exibida em um selo ao lado do nome (ex.: prazos que pedem atenção). */
   contagem?: number;
+  /** Texto para leitor de tela da contagem: [no singular, no plural]. */
+  contagemTexto?: [string, string];
 }
 
 const MENU_DONO: ItemMenu[] = [
@@ -25,9 +28,8 @@ const MENU_DONO: ItemMenu[] = [
   { para: "/diagnostico", rotulo: "Diagnóstico", icone: Stethoscope },
 ];
 
-const MODULOS_BREVE: ItemMenu[] = [
-  { rotulo: "Intimações", icone: Gavel, emBreve: true, descricao: "Intimações do DJEN" },
-];
+// Módulos ainda não construídos (aparecem desativados com "Em breve"). Hoje não há nenhum.
+const MODULOS_BREVE: ItemMenu[] = [];
 
 export const MODULOS_EM_BREVE: readonly ItemMenu[] = MODULOS_BREVE;
 
@@ -48,6 +50,7 @@ export function Casca({ children }: { children: ReactNode }) {
   const primeiraVez = useRef(true);
   const ehEscritorio = !!eu && !eu.usuario.dono_plataforma;
   const alertas = useAlertasPrazos(ehEscritorio, eu?.usuario.id ?? "");
+  const naoLidas = useContagemIntimacoes(ehEscritorio);
 
   useEffect(() => {
     setGavetaAberta(false);
@@ -86,7 +89,7 @@ export function Casca({ children }: { children: ReactNode }) {
 
   const principais: ItemMenu[] = usuario.dono_plataforma
     ? MENU_DONO
-    : [{ para: "/", rotulo: "Início", icone: House }, { para: "/clientes", rotulo: "Clientes", icone: Contact }, { para: "/processos", rotulo: "Processos", icone: Briefcase }, { para: "/prazos", rotulo: "Prazos", icone: Bell, contagem: alertas.contagem }, { para: "/agenda", rotulo: "Agenda", icone: CalendarDays }, ...(eu.permissoes.financeiro !== "nenhum" ? [{ para: "/financeiro", rotulo: "Financeiro", icone: Wallet }] : []), { para: "/escritorio", rotulo: "Escritório", icone: Building2 }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
+    : [{ para: "/", rotulo: "Início", icone: House }, { para: "/clientes", rotulo: "Clientes", icone: Contact }, { para: "/processos", rotulo: "Processos", icone: Briefcase }, { para: "/prazos", rotulo: "Prazos", icone: Bell, contagem: alertas.contagem, contagemTexto: ["prazo pede atenção", "prazos pedem atenção"] }, { para: "/agenda", rotulo: "Agenda", icone: CalendarDays }, { para: "/intimacoes", rotulo: "Intimações", icone: Gavel, contagem: naoLidas, contagemTexto: ["intimação não lida", "intimações não lidas"] }, ...(eu.permissoes.financeiro !== "nenhum" ? [{ para: "/financeiro", rotulo: "Financeiro", icone: Wallet }] : []), { para: "/escritorio", rotulo: "Escritório", icone: Building2 }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
   const futuros = usuario.dono_plataforma ? [] : MODULOS_BREVE;
 
   const renderItem = (item: ItemMenu) => {
@@ -114,7 +117,7 @@ export function Casca({ children }: { children: ReactNode }) {
               <span className="nav-contagem" aria-hidden="true">
                 {item.contagem > 99 ? "99+" : item.contagem}
               </span>
-              <span className="so-leitor">({item.contagem === 1 ? "1 prazo pede atenção" : `${item.contagem} prazos pedem atenção`})</span>
+              <span className="so-leitor">({item.contagem} {(item.contagemTexto ?? ["pendência", "pendências"])[item.contagem === 1 ? 0 : 1]})</span>
             </>
           ) : null}
           {recolhida && <span className="so-leitor">{item.rotulo}</span>}

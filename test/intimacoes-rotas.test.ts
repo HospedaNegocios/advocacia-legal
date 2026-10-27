@@ -95,6 +95,7 @@ describe("filtros e resumo", () => {
     expect(r.json.tribunais).toEqual(["TJSP"]);
     expect(r.json.oabs[0].id).toBe(oab.id);
     expect((await chamar("GET", "/api/inicio", { cookie: socio.cookie })).json.intimacoes).toEqual({ nao_lidas: 2, sem_processo: 2 });
+    expect((await chamar("GET", "/api/intimacoes/contagem", { cookie: socio.cookie })).json.nao_lidas).toBe(2);
   });
 });
 

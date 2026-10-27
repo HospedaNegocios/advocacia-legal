@@ -1,0 +1,18 @@
+/* Intimações do DJEN. Só tokens; nada de cor solta. */
+.intimacao-detalhe { display: grid; gap: var(--e-4); min-width: 0; }
+.modal:has(.intimacao-detalhe) { max-width: 46rem; }
+.intimacao-titulo-texto { margin: 0 0 var(--e-2); font-size: var(--texto-sm); color: var(--cor-texto-2); font-weight: 600; }
+.intimacao-texto {
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow-y: auto;
+  padding: var(--e-4); background: var(--cor-superficie-2); border: 1px solid var(--cor-borda); border-radius: var(--raio-md);
+  font-size: var(--texto-sm); line-height: 1.6; color: var(--cor-texto);
+}
+.intimacao-celula { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.intimacao-celula small { color: var(--cor-texto-2); font-size: var(--texto-xs); }
+.intimacao-previa {
+  color: var(--cor-texto-2); font-size: var(--texto-sm); margin-top: var(--e-1);
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.intimacao-selos { display: flex; flex-wrap: wrap; gap: var(--e-2); }
+.intimacoes-acoes-lista { display: flex; justify-content: flex-end; padding: var(--e-3) var(--e-4); border-bottom: 1px solid var(--cor-borda); }
+@media (max-width: 767.98px) { .intimacoes-acoes-lista .btn { width: 100%; } .intimacao-texto { max-height: 50dvh; } }

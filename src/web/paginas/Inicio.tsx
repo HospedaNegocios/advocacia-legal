@@ -1,4 +1,4 @@
-import { AlarmClock, AlarmClockOff, Briefcase, CalendarClock, CalendarDays, Contact } from "lucide-react";
+import { AlarmClock, AlarmClockOff, Briefcase, CalendarClock, CalendarDays, Contact, Gavel } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ErroApi, api } from "../api";
 import { MODULOS_EM_BREVE } from "../layout/Casca";
@@ -18,6 +18,7 @@ interface ResumoInicio {
   eventos: Evento[];
   processos: { ativos: number; por_fase: Record<Fase, number> };
   clientes: { ativos: number };
+  intimacoes: { nao_lidas: number; sem_processo: number };
 }
 
 function ListaPrazos({ prazos, vazio, mostrarData }: { prazos: Prazo[]; vazio: string; mostrarData?: boolean }) {
@@ -106,11 +107,19 @@ export function Inicio() {
                   )}
                 </Indicador>
                 <Indicador rotulo="Próximos 7 dias" valor={dados.prazos.proximos_7_dias} icone={CalendarClock} nota="a partir de amanhã" />
+                <Indicador rotulo="Intimações não lidas" valor={dados.intimacoes.nao_lidas} icone={Gavel} nota="publicações do DJEN">
+                  {dados.intimacoes.nao_lidas > 0 && (
+                    <div>
+                      <Link para="/intimacoes">Ler agora</Link>
+                    </div>
+                  )}
+                </Indicador>
                 <Indicador rotulo="Processos ativos" valor={dados.processos.ativos} icone={Briefcase} />
                 <Indicador rotulo="Clientes ativos" valor={dados.clientes.ativos} icone={Contact} />
               </>
             ) : (
               <>
+                <EsqueletoKpi />
                 <EsqueletoKpi />
                 <EsqueletoKpi />
                 <EsqueletoKpi />

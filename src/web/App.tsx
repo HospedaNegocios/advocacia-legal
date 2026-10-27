@@ -9,6 +9,7 @@ import { ProcessoDetalhe } from "./paginas/ProcessoDetalhe";
 import { Processos } from "./paginas/Processos";
 import { Agenda } from "./paginas/Agenda";
 import { Financeiro } from "./paginas/Financeiro";
+import { Intimacoes } from "./paginas/Intimacoes";
 import { Prazos } from "./paginas/Prazos";
 import { Diagnostico } from "./paginas/Diagnostico";
 import { Equipe } from "./paginas/Equipe";
@@ -68,6 +69,7 @@ function Rotas() {
   else if (caminho.startsWith("/processos/") && !dono) conteudo = <ProcessoDetalhe id={caminho.slice("/processos/".length)} />;
   else if (caminho === "/prazos" && !dono) conteudo = <Prazos />;
   else if (caminho === "/agenda" && !dono) conteudo = <Agenda />;
+  else if (caminho === "/intimacoes" && !dono) conteudo = <Intimacoes />;
   else if (caminho === "/financeiro" && !dono && eu.permissoes.financeiro !== "nenhum") conteudo = <Financeiro />;
   else if (caminho === "/seguranca") conteudo = <Configurar2fa obrigatorio={false} />;
   return <Casca>{conteudo}</Casca>;

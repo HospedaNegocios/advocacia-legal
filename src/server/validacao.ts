@@ -22,10 +22,10 @@ export function normalizarEmail(valor: unknown): string | null {
   return email.length <= 254 && FORMATO_EMAIL.test(email) ? email : null;
 }
 
-export function normalizarNome(valor: unknown): string | null {
+export function normalizarNome(valor: unknown, maximo = 120): string | null {
   if (typeof valor !== "string") return null;
   const nome = valor.trim().replace(/\s+/g, " ");
-  return nome.length >= 1 && nome.length <= 120 ? nome : null;
+  return nome.length >= 1 && nome.length <= maximo ? nome : null;
 }
 
 export function ehPlano(v: unknown): v is Plano {

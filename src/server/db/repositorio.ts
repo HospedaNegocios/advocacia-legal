@@ -285,6 +285,93 @@ export interface LinhaAndamento {
   criado_em: string;
 }
 
+// ---------- Financeiro ----------
+
+export const TIPOS_LANCAMENTO = ["receita", "despesa"] as const;
+export type TipoLancamento = (typeof TIPOS_LANCAMENTO)[number];
+export const STATUS_LANCAMENTO = ["aberto", "pago", "cancelado"] as const;
+export type StatusLancamento = (typeof STATUS_LANCAMENTO)[number];
+
+export interface LinhaLancamento {
+  id: string;
+  tenant_id: string;
+  tipo: TipoLancamento;
+  descricao: string;
+  descricao_busca: string;
+  categoria: string | null;
+  valor_centavos: number;
+  vencimento: string;
+  status: StatusLancamento;
+  pago_em: string | null;
+  valor_pago_centavos: number | null;
+  cliente_id: string | null;
+  processo_id: string | null;
+  observacoes: string | null;
+  criado_por: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Campos que o escritório grava ao criar ou editar (tipo só na criação; status e pagamento têm rotas próprias). */
+export const CAMPOS_LANCAMENTO = ["descricao", "categoria", "valor_centavos", "vencimento", "cliente_id", "processo_id", "observacoes"] as const;
+export interface DadosLancamento {
+  descricao: string;
+  categoria: string | null;
+  valor_centavos: number;
+  vencimento: string;
+  cliente_id: string | null;
+  processo_id: string | null;
+  observacoes: string | null;
+}
+
+export interface LancamentoDetalhado extends LinhaLancamento {
+  cliente_nome: string | null;
+  processo_numero: string | null;
+}
+
+export interface FiltroLancamentos {
+  tipo?: TipoLancamento;
+  status?: StatusLancamento;
+  /** Só abertos com vencimento antes de `hoje` (AAAA-MM-DD, calculado pela rota no fuso do escritório). */
+  vencidos_antes_de?: string;
+  /** Período do vencimento (inclusive). */
+  de?: string;
+  ate?: string;
+  /** Período do pagamento (inclusive). */
+  pago_de?: string;
+  pago_ate?: string;
+  cliente_id?: string;
+  processo_id?: string;
+  categoria?: string;
+  busca?: string;
+  ordem?: "vencimento" | "vencimento_desc" | "pago_em_desc";
+  limite?: number;
+  deslocamento?: number;
+}
+
+export interface ResumoLancamentos {
+  a_receber_centavos: number;
+  a_receber_qtd: number;
+  vencido_receber_centavos: number;
+  vencido_receber_qtd: number;
+  a_pagar_centavos: number;
+  a_pagar_qtd: number;
+  vencido_pagar_centavos: number;
+  vencido_pagar_qtd: number;
+  recebido_periodo_centavos: number;
+  pago_periodo_centavos: number;
+  /** Recebido − pago no período. */
+  saldo_periodo_centavos: number;
+  /** Recebido − pago desde sempre, até o fim do período. */
+  saldo_acumulado_centavos: number;
+}
+
+export interface PontoMensal {
+  mes: string;
+  recebido_centavos: number;
+  pago_centavos: number;
+}
+
 // ---------- Prazos e agenda ----------
 
 export const STATUS_PRAZO = ["a_fazer", "em_andamento", "aguardando", "concluido"] as const;
@@ -500,6 +587,7 @@ interface LinhasPorTabela {
   prazos: LinhaPrazo;
   eventos_agenda: LinhaEvento;
   eventos_participantes: LinhaParticipante;
+  lancamentos: LinhaLancamento;
 }
 export type TabelaDoEscritorio = keyof LinhasPorTabela;
 
@@ -620,6 +708,12 @@ const TABELAS: Readonly<Record<TabelaDoEscritorio, ConfigTabela>> = {
     temAtualizadoEm: false,
     imutavel: false,
   },
+  lancamentos: {
+    inserivel: ["id", "tipo", "descricao_busca", "status", "pago_em", "valor_pago_centavos", "criado_por", "criado_em", "atualizado_em", ...CAMPOS_LANCAMENTO],
+    atualizavel: ["descricao_busca", ...CAMPOS_LANCAMENTO],
+    temAtualizadoEm: true,
+    imutavel: false,
+  },
 };
 
 // Colunas aceitas em filtros de leitura (além de tenant_id, que é sempre aplicado).
@@ -640,6 +734,7 @@ const COLUNAS_FILTRO: Readonly<Record<TabelaDoEscritorio, readonly string[]>> = 
   prazos: ["id", "status", "responsavel_id", "processo_id"],
   eventos_agenda: ["id", "tipo", "processo_id", "cliente_id", "criado_por"],
   eventos_participantes: ["id", "evento_id", "user_id"],
+  lancamentos: ["id", "tipo", "status", "cliente_id", "processo_id"],
 };
 
 const LIMITE_PADRAO = 50;
@@ -782,6 +877,29 @@ export interface Repositorio {
     atualizarComParticipantes(id: string, dados: DadosEvento, userIds: string[]): Promise<boolean>;
     /** Apaga o evento e seus participantes juntos. */
     excluirCompleto(id: string): Promise<boolean>;
+  };
+  /**
+   * Lançamentos do financeiro (receitas e despesas). `descricao_busca` é calculada aqui.
+   * As mudanças de situação são atômicas: só valem se o lançamento ainda está na situação esperada (devolvem false se não).
+   */
+  lancamentos: RepositorioTabela<LinhaLancamento> & {
+    pesquisar(filtro?: FiltroLancamentos): Promise<{ itens: LancamentoDetalhado[]; total: number }>;
+    buscarDetalhado(id: string): Promise<LancamentoDetalhado | null>;
+    /** `hoje`, `de` e `ate` (AAAA-MM-DD) vêm da rota, calculados no fuso do escritório. */
+    resumo(hoje: string, de: string, ate: string): Promise<ResumoLancamentos>;
+    /** Recebido e pago por mês ("AAAA-MM") entre dois dias; só meses com movimento. */
+    serieMensal(de: string, ate: string): Promise<PontoMensal[]>;
+    /** Categorias já usadas no escritório (para sugestão), ordem alfabética. */
+    categorias(): Promise<string[]>;
+    /** Edita os campos de um lançamento que ainda está em aberto. */
+    atualizarAberto(id: string, dados: DadosLancamento): Promise<boolean>;
+    pagar(id: string, pagoEm: string, valorPagoCentavos: number): Promise<boolean>;
+    /** Pago → aberto. */
+    estornar(id: string): Promise<boolean>;
+    /** Aberto → cancelado. */
+    cancelar(id: string): Promise<boolean>;
+    /** Cancelado → aberto. */
+    reabrir(id: string): Promise<boolean>;
   };
   /** Permissões por usuário e módulo (hoje só o financeiro). Só usuários ativos do próprio escritório. */
   permissoes: {
@@ -933,6 +1051,7 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
   const andamentosBase = montarTabela(db, tid, "processos_andamentos");
   const prazosBase = montarTabela(db, tid, "prazos");
   const eventosBase = montarTabela(db, tid, "eventos_agenda");
+  const lancamentosBase = montarTabela(db, tid, "lancamentos");
 
   return {
     tenantId: tid,
@@ -1300,6 +1419,189 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
         const r = await db
           .prepare("UPDATE prazos SET status = ?, concluido_em = ?, atualizado_em = ? WHERE id = ? AND tenant_id = ?")
           .bind(status, status === "concluido" ? agoraIso : null, agoraIso, id, tid)
+          .run();
+        return r.meta.changes > 0;
+      },
+    },
+    lancamentos: {
+      ...lancamentosBase,
+      async inserir(dados) {
+        const d = dados as Partial<LinhaLancamento>;
+        return lancamentosBase.inserir({ ...dados, descricao_busca: normalizarBusca(d.descricao ?? "") });
+      },
+      async atualizar(id, dados) {
+        const d = dados as Partial<LinhaLancamento>;
+        return lancamentosBase.atualizar(id, d.descricao === undefined ? dados : { ...dados, descricao_busca: normalizarBusca(d.descricao) });
+      },
+      async pesquisar(filtro = {}) {
+        const condicoes = ["l.tenant_id = ?"];
+        const params: Valor[] = [tid];
+        if (filtro.tipo) {
+          condicoes.push("l.tipo = ?");
+          params.push(filtro.tipo);
+        }
+        if (filtro.status) {
+          condicoes.push("l.status = ?");
+          params.push(filtro.status);
+        }
+        if (filtro.vencidos_antes_de) {
+          condicoes.push("l.status = 'aberto' AND l.vencimento < ?");
+          params.push(filtro.vencidos_antes_de);
+        }
+        for (const [coluna, operador, valor] of [
+          ["l.vencimento", ">=", filtro.de],
+          ["l.vencimento", "<=", filtro.ate],
+          ["l.pago_em", ">=", filtro.pago_de],
+          ["l.pago_em", "<=", filtro.pago_ate],
+        ] as const) {
+          if (valor) {
+            condicoes.push(`${coluna} ${operador} ?`);
+            params.push(valor);
+          }
+        }
+        if (filtro.cliente_id) {
+          condicoes.push("l.cliente_id = ?");
+          params.push(filtro.cliente_id);
+        }
+        if (filtro.processo_id) {
+          condicoes.push("l.processo_id = ?");
+          params.push(filtro.processo_id);
+        }
+        if (filtro.categoria) {
+          condicoes.push("l.categoria = ?");
+          params.push(filtro.categoria);
+        }
+        const busca = normalizarBusca((filtro.busca ?? "").slice(0, 100));
+        if (busca) {
+          condicoes.push("l.descricao_busca LIKE ? ESCAPE '\\'");
+          params.push(`%${busca.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`);
+        }
+        const onde = condicoes.join(" AND ");
+        const ordem =
+          filtro.ordem === "vencimento_desc"
+            ? "l.vencimento DESC, l.criado_em DESC, l.id"
+            : filtro.ordem === "pago_em_desc"
+              ? "l.pago_em DESC, l.criado_em DESC, l.id"
+              : "l.vencimento, l.criado_em, l.id";
+        const limite = Math.min(Math.max(Math.trunc(filtro.limite ?? 20), 1), LIMITE_MAXIMO);
+        const deslocamento = Math.max(Math.trunc(filtro.deslocamento ?? 0), 0);
+        const [lista, total] = await Promise.all([
+          db
+            .prepare(
+              `SELECT l.*, c.nome AS cliente_nome, p.numero_cnj AS processo_numero FROM lancamentos l
+               LEFT JOIN clientes c ON c.id = l.cliente_id AND c.tenant_id = l.tenant_id
+               LEFT JOIN processos p ON p.id = l.processo_id AND p.tenant_id = l.tenant_id
+               WHERE ${onde} ORDER BY ${ordem} LIMIT ? OFFSET ?`,
+            )
+            .bind(...params, limite, deslocamento)
+            .all<LancamentoDetalhado>(),
+          db.prepare(`SELECT COUNT(*) AS n FROM lancamentos l WHERE ${onde}`).bind(...params).first<{ n: number }>(),
+        ]);
+        return { itens: lista.results, total: total?.n ?? 0 };
+      },
+      async buscarDetalhado(id) {
+        const linha = await db
+          .prepare(
+            `SELECT l.*, c.nome AS cliente_nome, p.numero_cnj AS processo_numero FROM lancamentos l
+             LEFT JOIN clientes c ON c.id = l.cliente_id AND c.tenant_id = l.tenant_id
+             LEFT JOIN processos p ON p.id = l.processo_id AND p.tenant_id = l.tenant_id
+             WHERE l.id = ? AND l.tenant_id = ?`,
+          )
+          .bind(id, tid)
+          .first<LancamentoDetalhado>();
+        return linha ?? null;
+      },
+      async resumo(hoje, de, ate) {
+        const l = await db
+          .prepare(
+            `SELECT
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'aberto' THEN valor_centavos END), 0) AS a_receber,
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'aberto' THEN 1 END), 0) AS a_receber_qtd,
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'aberto' AND vencimento < ? THEN valor_centavos END), 0) AS venc_receber,
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'aberto' AND vencimento < ? THEN 1 END), 0) AS venc_receber_qtd,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'aberto' THEN valor_centavos END), 0) AS a_pagar,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'aberto' THEN 1 END), 0) AS a_pagar_qtd,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'aberto' AND vencimento < ? THEN valor_centavos END), 0) AS venc_pagar,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'aberto' AND vencimento < ? THEN 1 END), 0) AS venc_pagar_qtd,
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'pago' AND pago_em >= ? AND pago_em <= ? THEN valor_pago_centavos END), 0) AS recebido,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'pago' AND pago_em >= ? AND pago_em <= ? THEN valor_pago_centavos END), 0) AS pago,
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'pago' AND pago_em <= ? THEN valor_pago_centavos END), 0) AS acum_receitas,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'pago' AND pago_em <= ? THEN valor_pago_centavos END), 0) AS acum_despesas
+             FROM lancamentos WHERE tenant_id = ?`,
+          )
+          .bind(hoje, hoje, hoje, hoje, de, ate, de, ate, ate, ate, tid)
+          .first<Record<string, number>>();
+        const n = (k: string) => l?.[k] ?? 0;
+        return {
+          a_receber_centavos: n("a_receber"),
+          a_receber_qtd: n("a_receber_qtd"),
+          vencido_receber_centavos: n("venc_receber"),
+          vencido_receber_qtd: n("venc_receber_qtd"),
+          a_pagar_centavos: n("a_pagar"),
+          a_pagar_qtd: n("a_pagar_qtd"),
+          vencido_pagar_centavos: n("venc_pagar"),
+          vencido_pagar_qtd: n("venc_pagar_qtd"),
+          recebido_periodo_centavos: n("recebido"),
+          pago_periodo_centavos: n("pago"),
+          saldo_periodo_centavos: n("recebido") - n("pago"),
+          saldo_acumulado_centavos: n("acum_receitas") - n("acum_despesas"),
+        };
+      },
+      async serieMensal(de, ate) {
+        const { results } = await db
+          .prepare(
+            `SELECT substr(pago_em, 1, 7) AS mes,
+                    COALESCE(SUM(CASE WHEN tipo = 'receita' THEN valor_pago_centavos END), 0) AS recebido_centavos,
+                    COALESCE(SUM(CASE WHEN tipo = 'despesa' THEN valor_pago_centavos END), 0) AS pago_centavos
+             FROM lancamentos WHERE tenant_id = ? AND status = 'pago' AND pago_em >= ? AND pago_em <= ?
+             GROUP BY substr(pago_em, 1, 7) ORDER BY mes`,
+          )
+          .bind(tid, de, ate)
+          .all<PontoMensal>();
+        return results;
+      },
+      async categorias() {
+        const { results } = await db
+          .prepare("SELECT DISTINCT categoria FROM lancamentos WHERE tenant_id = ? AND categoria IS NOT NULL ORDER BY categoria COLLATE NOCASE LIMIT 200")
+          .bind(tid)
+          .all<{ categoria: string }>();
+        return results.map((r) => r.categoria);
+      },
+      async atualizarAberto(id, dados) {
+        const r = await db
+          .prepare(
+            `UPDATE lancamentos SET descricao = ?, descricao_busca = ?, categoria = ?, valor_centavos = ?, vencimento = ?, cliente_id = ?, processo_id = ?, observacoes = ?, atualizado_em = ?
+             WHERE id = ? AND tenant_id = ? AND status = 'aberto'`,
+          )
+          .bind(dados.descricao, normalizarBusca(dados.descricao), dados.categoria, dados.valor_centavos, dados.vencimento, dados.cliente_id, dados.processo_id, dados.observacoes, agora(), id, tid)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async pagar(id, pagoEm, valorPagoCentavos) {
+        const r = await db
+          .prepare("UPDATE lancamentos SET status = 'pago', pago_em = ?, valor_pago_centavos = ?, atualizado_em = ? WHERE id = ? AND tenant_id = ? AND status = 'aberto'")
+          .bind(pagoEm, valorPagoCentavos, agora(), id, tid)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async estornar(id) {
+        const r = await db
+          .prepare("UPDATE lancamentos SET status = 'aberto', pago_em = NULL, valor_pago_centavos = NULL, atualizado_em = ? WHERE id = ? AND tenant_id = ? AND status = 'pago'")
+          .bind(agora(), id, tid)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async cancelar(id) {
+        const r = await db
+          .prepare("UPDATE lancamentos SET status = 'cancelado', atualizado_em = ? WHERE id = ? AND tenant_id = ? AND status = 'aberto'")
+          .bind(agora(), id, tid)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async reabrir(id) {
+        const r = await db
+          .prepare("UPDATE lancamentos SET status = 'aberto', atualizado_em = ? WHERE id = ? AND tenant_id = ? AND status = 'cancelado'")
+          .bind(agora(), id, tid)
           .run();
         return r.meta.changes > 0;
       },

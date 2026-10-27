@@ -1,4 +1,5 @@
 import type { NovaIntimacao } from "../db/repositorio";
+import { htmlParaTexto } from "../../comum/html";
 
 // Leitura defensiva de um item da API pública do DJEN (formato em docs/DJEN.md).
 // Os nomes dos campos vêm de relatos de terceiros e do diagnóstico do Worker: o CNJ não publicou um esquema oficial.
@@ -57,7 +58,7 @@ export function normalizarItem(bruto: unknown): NovaIntimacao | null {
     tipo_documento: texto(i["tipoDocumento"]),
     classe: texto(i["nomeClasse"]),
     data_disponibilizacao: normalizarData(i["data_disponibilizacao"] ?? i["datadisponibilizacao"]),
-    texto: conteudo.slice(0, TEXTO_MAXIMO),
+    texto: htmlParaTexto(conteudo).slice(0, TEXTO_MAXIMO),
     link: linkSeguro(i["link"]),
     cancelada_em: texto(i["data_cancelamento"], 40),
   };

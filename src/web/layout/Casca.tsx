@@ -86,7 +86,7 @@ export function Casca({ children }: { children: ReactNode }) {
 
   const principais: ItemMenu[] = usuario.dono_plataforma
     ? MENU_DONO
-    : [{ para: "/", rotulo: "Início", icone: House }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
+    : [{ para: "/", rotulo: "Início", icone: House }, { para: "/escritorio", rotulo: "Escritório", icone: Building2 }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
   const futuros = usuario.dono_plataforma ? [] : MODULOS_BREVE;
 
   const renderItem = (item: ItemMenu) => {

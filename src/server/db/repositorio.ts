@@ -267,6 +267,131 @@ export interface LinhaAndamento {
   criado_em: string;
 }
 
+// ---------- Prazos e agenda ----------
+
+export const STATUS_PRAZO = ["a_fazer", "em_andamento", "aguardando", "concluido"] as const;
+export type StatusPrazo = (typeof STATUS_PRAZO)[number];
+export const TIPOS_EVENTO = ["audiencia", "reuniao", "diligencia", "outro"] as const;
+export type TipoEvento = (typeof TIPOS_EVENTO)[number];
+
+export interface LinhaPrazo {
+  id: string;
+  tenant_id: string;
+  titulo: string;
+  descricao: string | null;
+  data_fatal: string;
+  hora: string | null;
+  processo_id: string | null;
+  responsavel_id: string;
+  status: StatusPrazo;
+  concluido_em: string | null;
+  criado_por: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Campos do prazo que o escritório grava (status, conclusão e autoria são controlados pela camada e pelas rotas). */
+export const CAMPOS_PRAZO = ["titulo", "descricao", "data_fatal", "hora", "processo_id", "responsavel_id"] as const;
+export interface DadosPrazo {
+  titulo: string;
+  descricao: string | null;
+  data_fatal: string;
+  hora: string | null;
+  processo_id: string | null;
+  responsavel_id: string;
+}
+
+export interface PrazoDetalhado extends LinhaPrazo {
+  processo_numero: string | null;
+  responsavel_nome: string;
+}
+
+export interface FiltroPrazos {
+  status?: StatusPrazo;
+  /** Só prazos não concluídos. */
+  abertos?: boolean;
+  responsavel?: string;
+  processo_id?: string;
+  /** Período pela data fatal (inclusive), AAAA-MM-DD. */
+  de?: string;
+  ate?: string;
+  /** Esconde os concluídos antes deste instante (ISO). Os não concluídos aparecem sempre. */
+  concluidos_desde?: string;
+  limite?: number;
+  deslocamento?: number;
+}
+
+export interface ResumoPrazos {
+  hoje: string;
+  vencidos: number;
+  vencem_hoje: number;
+  proximos_7_dias: number;
+  por_status: Record<StatusPrazo, number>;
+}
+
+export interface LinhaEvento {
+  id: string;
+  tenant_id: string;
+  titulo: string;
+  tipo: TipoEvento;
+  inicio: string;
+  fim: string;
+  fuso: string;
+  dia_inteiro: number;
+  local: string | null;
+  descricao: string | null;
+  processo_id: string | null;
+  cliente_id: string | null;
+  id_externo: string | null;
+  origem_externa: string | null;
+  criado_por: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export const CAMPOS_EVENTO = ["titulo", "tipo", "inicio", "fim", "fuso", "dia_inteiro", "local", "descricao", "processo_id", "cliente_id"] as const;
+export interface DadosEvento {
+  titulo: string;
+  tipo: TipoEvento;
+  inicio: string;
+  fim: string;
+  fuso: string;
+  dia_inteiro: number;
+  local: string | null;
+  descricao: string | null;
+  processo_id: string | null;
+  cliente_id: string | null;
+}
+
+export interface LinhaParticipante {
+  id: string;
+  tenant_id: string;
+  evento_id: string;
+  user_id: string;
+  criado_em: string;
+}
+
+export interface EventoDetalhado extends LinhaEvento {
+  processo_numero: string | null;
+  cliente_nome: string | null;
+}
+
+export interface ParticipanteDetalhado {
+  evento_id: string;
+  user_id: string;
+  nome: string;
+  ativo: number;
+}
+
+export interface FiltroEventos {
+  processo_id?: string;
+  cliente_id?: string;
+  /** Eventos que se sobrepõem a [de, ate] (instantes ISO UTC). */
+  de?: string;
+  ate?: string;
+  limite?: number;
+}
+
 /** Parte com o nome já resolvido (nome do cliente cadastrado ou nome livre). */
 export interface ParteDetalhada extends LinhaParteProcesso {
   nome_exibicao: string;
@@ -348,6 +473,9 @@ interface LinhasPorTabela {
   processos_partes: LinhaParteProcesso;
   processos_responsaveis: LinhaResponsavelProcesso;
   processos_andamentos: LinhaAndamento;
+  prazos: LinhaPrazo;
+  eventos_agenda: LinhaEvento;
+  eventos_participantes: LinhaParticipante;
 }
 export type TabelaDoEscritorio = keyof LinhasPorTabela;
 
@@ -450,6 +578,24 @@ const TABELAS: Readonly<Record<TabelaDoEscritorio, ConfigTabela>> = {
     temAtualizadoEm: false,
     imutavel: false,
   },
+  prazos: {
+    inserivel: ["id", "status", "concluido_em", "criado_por", "criado_em", "atualizado_em", ...CAMPOS_PRAZO],
+    atualizavel: ["status", "concluido_em", ...CAMPOS_PRAZO],
+    temAtualizadoEm: true,
+    imutavel: false,
+  },
+  eventos_agenda: {
+    inserivel: ["id", "id_externo", "origem_externa", "criado_por", "criado_em", "atualizado_em", ...CAMPOS_EVENTO],
+    atualizavel: ["id_externo", "origem_externa", ...CAMPOS_EVENTO],
+    temAtualizadoEm: true,
+    imutavel: false,
+  },
+  eventos_participantes: {
+    inserivel: ["id", "evento_id", "user_id", "criado_em"],
+    atualizavel: [],
+    temAtualizadoEm: false,
+    imutavel: false,
+  },
 };
 
 // Colunas aceitas em filtros de leitura (além de tenant_id, que é sempre aplicado).
@@ -467,6 +613,9 @@ const COLUNAS_FILTRO: Readonly<Record<TabelaDoEscritorio, readonly string[]>> = 
   processos_partes: ["id", "processo_id", "cliente_id"],
   processos_responsaveis: ["id", "processo_id", "user_id"],
   processos_andamentos: ["id", "processo_id"],
+  prazos: ["id", "status", "responsavel_id", "processo_id"],
+  eventos_agenda: ["id", "tipo", "processo_id", "cliente_id", "criado_por"],
+  eventos_participantes: ["id", "evento_id", "user_id"],
 };
 
 const LIMITE_PADRAO = 50;
@@ -589,6 +738,26 @@ export interface Repositorio {
   andamentos: RepositorioTabela<LinhaAndamento> & {
     /** Mais recentes primeiro (data e depois ordem de registro). */
     doProcesso(processoId: string, opcoes?: { limite?: number; deslocamento?: number }): Promise<{ itens: LinhaAndamento[]; total: number }>;
+  };
+  prazos: RepositorioTabela<LinhaPrazo> & {
+    pesquisar(filtro?: FiltroPrazos): Promise<{ itens: PrazoDetalhado[]; total: number }>;
+    buscarDetalhado(id: string): Promise<PrazoDetalhado | null>;
+    /** `hoje` (AAAA-MM-DD) é calculado pela rota no fuso do escritório: a camada nunca usa a hora do servidor como hora local. */
+    resumo(hoje: string, responsavel?: string): Promise<ResumoPrazos>;
+    /** Muda o status e ajusta `concluido_em` (preenchido ao concluir, limpo ao reabrir). */
+    mover(id: string, status: StatusPrazo, agoraIso: string): Promise<boolean>;
+  };
+  eventos: RepositorioTabela<LinhaEvento> & {
+    pesquisar(filtro?: FiltroEventos): Promise<EventoDetalhado[]>;
+    buscarDetalhado(id: string): Promise<EventoDetalhado | null>;
+    /** Eventos que ainda não terminaram em `agoraIso`, do mais próximo ao mais distante. */
+    proximos(agoraIso: string, limite: number): Promise<EventoDetalhado[]>;
+    participantes(eventoIds: string[]): Promise<ParticipanteDetalhado[]>;
+    /** Grava o evento e os participantes juntos (tudo ou nada). */
+    criarComParticipantes(dados: DadosEvento, criadoPor: string, userIds: string[]): Promise<string>;
+    atualizarComParticipantes(id: string, dados: DadosEvento, userIds: string[]): Promise<boolean>;
+    /** Apaga o evento e seus participantes juntos. */
+    excluirCompleto(id: string): Promise<boolean>;
   };
   /** Auditoria: só leitura e registro (sem alterar/excluir). */
   auditoria: {
@@ -717,6 +886,8 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
   const partesBase = montarTabela(db, tid, "processos_partes");
   const responsaveisBase = montarTabela(db, tid, "processos_responsaveis");
   const andamentosBase = montarTabela(db, tid, "processos_andamentos");
+  const prazosBase = montarTabela(db, tid, "prazos");
+  const eventosBase = montarTabela(db, tid, "eventos_agenda");
 
   return {
     tenantId: tid,
@@ -996,6 +1167,205 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
           db.prepare("SELECT COUNT(*) AS n FROM processos_andamentos WHERE tenant_id = ? AND processo_id = ?").bind(tid, processoId).first<{ n: number }>(),
         ]);
         return { itens: lista.results, total: total?.n ?? 0 };
+      },
+    },
+    prazos: {
+      ...prazosBase,
+      async pesquisar(filtro = {}) {
+        const condicoes = ["z.tenant_id = ?"];
+        const params: Valor[] = [tid];
+        if (filtro.status) {
+          condicoes.push("z.status = ?");
+          params.push(filtro.status);
+        }
+        if (filtro.abertos) condicoes.push("z.status <> 'concluido'");
+        if (filtro.responsavel) {
+          condicoes.push("z.responsavel_id = ?");
+          params.push(filtro.responsavel);
+        }
+        if (filtro.processo_id) {
+          condicoes.push("z.processo_id = ?");
+          params.push(filtro.processo_id);
+        }
+        if (filtro.de) {
+          condicoes.push("z.data_fatal >= ?");
+          params.push(filtro.de);
+        }
+        if (filtro.ate) {
+          condicoes.push("z.data_fatal <= ?");
+          params.push(filtro.ate);
+        }
+        if (filtro.concluidos_desde) {
+          condicoes.push("(z.status <> 'concluido' OR z.concluido_em >= ?)");
+          params.push(filtro.concluidos_desde);
+        }
+        const onde = condicoes.join(" AND ");
+        const limite = Math.min(Math.max(Math.trunc(filtro.limite ?? 50), 1), LIMITE_MAXIMO);
+        const deslocamento = Math.max(Math.trunc(filtro.deslocamento ?? 0), 0);
+        const [lista, total] = await Promise.all([
+          db
+            .prepare(
+              `SELECT z.*, p.numero_cnj AS processo_numero, u.nome AS responsavel_nome FROM prazos z
+               LEFT JOIN processos p ON p.id = z.processo_id AND p.tenant_id = z.tenant_id
+               JOIN users u ON u.id = z.responsavel_id AND u.tenant_id = z.tenant_id
+               WHERE ${onde} ORDER BY z.data_fatal, COALESCE(z.hora, '99:99'), z.criado_em, z.id LIMIT ? OFFSET ?`,
+            )
+            .bind(...params, limite, deslocamento)
+            .all<PrazoDetalhado>(),
+          db.prepare(`SELECT COUNT(*) AS n FROM prazos z WHERE ${onde}`).bind(...params).first<{ n: number }>(),
+        ]);
+        return { itens: lista.results, total: total?.n ?? 0 };
+      },
+      async buscarDetalhado(id) {
+        const linha = await db
+          .prepare(
+            `SELECT z.*, p.numero_cnj AS processo_numero, u.nome AS responsavel_nome FROM prazos z
+             LEFT JOIN processos p ON p.id = z.processo_id AND p.tenant_id = z.tenant_id
+             JOIN users u ON u.id = z.responsavel_id AND u.tenant_id = z.tenant_id
+             WHERE z.id = ? AND z.tenant_id = ?`,
+          )
+          .bind(id, tid)
+          .first<PrazoDetalhado>();
+        return linha ?? null;
+      },
+      async resumo(hoje, responsavel) {
+        const extra = responsavel ? " AND responsavel_id = ?" : "";
+        const filtroResp: Valor[] = responsavel ? [responsavel] : [];
+        const limite7 = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1, Number(hoje.slice(8, 10)) + 7)).toISOString().slice(0, 10);
+        const [datas, status] = await Promise.all([
+          db
+            .prepare(
+              `SELECT COALESCE(SUM(CASE WHEN data_fatal < ? THEN 1 ELSE 0 END), 0) AS vencidos,
+                      COALESCE(SUM(CASE WHEN data_fatal = ? THEN 1 ELSE 0 END), 0) AS hoje,
+                      COALESCE(SUM(CASE WHEN data_fatal > ? AND data_fatal <= ? THEN 1 ELSE 0 END), 0) AS prox
+               FROM prazos WHERE tenant_id = ? AND status <> 'concluido'${extra}`,
+            )
+            .bind(hoje, hoje, hoje, limite7, tid, ...filtroResp)
+            .first<{ vencidos: number; hoje: number; prox: number }>(),
+          db
+            .prepare(`SELECT status, COUNT(*) AS n FROM prazos WHERE tenant_id = ?${extra} GROUP BY status`)
+            .bind(tid, ...filtroResp)
+            .all<{ status: StatusPrazo; n: number }>(),
+        ]);
+        const por_status = Object.fromEntries(STATUS_PRAZO.map((x) => [x, 0])) as Record<StatusPrazo, number>;
+        for (const l of status.results) por_status[l.status] = l.n;
+        return { hoje, vencidos: datas?.vencidos ?? 0, vencem_hoje: datas?.hoje ?? 0, proximos_7_dias: datas?.prox ?? 0, por_status };
+      },
+      async mover(id, status, agoraIso) {
+        const r = await db
+          .prepare("UPDATE prazos SET status = ?, concluido_em = ?, atualizado_em = ? WHERE id = ? AND tenant_id = ?")
+          .bind(status, status === "concluido" ? agoraIso : null, agoraIso, id, tid)
+          .run();
+        return r.meta.changes > 0;
+      },
+    },
+    eventos: {
+      ...eventosBase,
+      async pesquisar(filtro = {}) {
+        const condicoes = ["e.tenant_id = ?"];
+        const params: Valor[] = [tid];
+        if (filtro.processo_id) {
+          condicoes.push("e.processo_id = ?");
+          params.push(filtro.processo_id);
+        }
+        if (filtro.cliente_id) {
+          condicoes.push("e.cliente_id = ?");
+          params.push(filtro.cliente_id);
+        }
+        // Sobreposição: começa antes do fim da janela e termina depois do começo dela.
+        if (filtro.ate) {
+          condicoes.push("e.inicio <= ?");
+          params.push(filtro.ate);
+        }
+        if (filtro.de) {
+          condicoes.push("e.fim >= ?");
+          params.push(filtro.de);
+        }
+        const limite = Math.min(Math.max(Math.trunc(filtro.limite ?? 500), 1), 500);
+        const { results } = await db
+          .prepare(
+            `SELECT e.*, p.numero_cnj AS processo_numero, c.nome AS cliente_nome FROM eventos_agenda e
+             LEFT JOIN processos p ON p.id = e.processo_id AND p.tenant_id = e.tenant_id
+             LEFT JOIN clientes c ON c.id = e.cliente_id AND c.tenant_id = e.tenant_id
+             WHERE ${condicoes.join(" AND ")} ORDER BY e.inicio, e.id LIMIT ?`,
+          )
+          .bind(...params, limite)
+          .all<EventoDetalhado>();
+        return results;
+      },
+      async buscarDetalhado(id) {
+        const linha = await db
+          .prepare(
+            `SELECT e.*, p.numero_cnj AS processo_numero, c.nome AS cliente_nome FROM eventos_agenda e
+             LEFT JOIN processos p ON p.id = e.processo_id AND p.tenant_id = e.tenant_id
+             LEFT JOIN clientes c ON c.id = e.cliente_id AND c.tenant_id = e.tenant_id
+             WHERE e.id = ? AND e.tenant_id = ?`,
+          )
+          .bind(id, tid)
+          .first<EventoDetalhado>();
+        return linha ?? null;
+      },
+      async proximos(agoraIso, limite) {
+        const { results } = await db
+          .prepare(
+            `SELECT e.*, p.numero_cnj AS processo_numero, c.nome AS cliente_nome FROM eventos_agenda e
+             LEFT JOIN processos p ON p.id = e.processo_id AND p.tenant_id = e.tenant_id
+             LEFT JOIN clientes c ON c.id = e.cliente_id AND c.tenant_id = e.tenant_id
+             WHERE e.tenant_id = ? AND e.fim >= ? ORDER BY e.inicio, e.id LIMIT ?`,
+          )
+          .bind(tid, agoraIso, Math.min(Math.max(Math.trunc(limite), 1), 50))
+          .all<EventoDetalhado>();
+        return results;
+      },
+      async participantes(eventoIds) {
+        if (eventoIds.length === 0) return [];
+        const { results } = await db
+          .prepare(
+            `SELECT x.evento_id AS evento_id, x.user_id AS user_id, u.nome AS nome, u.ativo AS ativo FROM eventos_participantes x
+             JOIN users u ON u.id = x.user_id AND u.tenant_id = x.tenant_id
+             WHERE x.tenant_id = ? AND x.evento_id IN (${eventoIds.map(() => "?").join(", ")})
+             ORDER BY u.nome, x.user_id`,
+          )
+          .bind(tid, ...eventoIds)
+          .all<ParticipanteDetalhado>();
+        return results;
+      },
+      async criarComParticipantes(dados, criadoPor, userIds) {
+        const id = crypto.randomUUID();
+        const ts = agora();
+        const cols = ["id", "tenant_id", "criado_por", "criado_em", "atualizado_em", ...CAMPOS_EVENTO];
+        const d = dados as unknown as Record<string, Valor>;
+        const valores: Valor[] = [id, tid, criadoPor, ts, ts, ...CAMPOS_EVENTO.map((c) => d[c] ?? null)];
+        const comandos = [
+          db.prepare(`INSERT INTO eventos_agenda (${cols.join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`).bind(...valores),
+          ...userIds.map((u) =>
+            db.prepare("INSERT INTO eventos_participantes (id, tenant_id, evento_id, user_id, criado_em) VALUES (?, ?, ?, ?, ?)").bind(crypto.randomUUID(), tid, id, u, ts),
+          ),
+        ];
+        await db.batch(comandos);
+        return id;
+      },
+      async atualizarComParticipantes(id, dados, userIds) {
+        const ts = agora();
+        const d = dados as unknown as Record<string, Valor>;
+        const sets = [...CAMPOS_EVENTO.map((c) => `${c} = ?`), "atualizado_em = ?"].join(", ");
+        const comandos = [
+          db.prepare(`UPDATE eventos_agenda SET ${sets} WHERE id = ? AND tenant_id = ?`).bind(...CAMPOS_EVENTO.map((c) => d[c] ?? null), ts, id, tid),
+          db.prepare("DELETE FROM eventos_participantes WHERE evento_id = ? AND tenant_id = ?").bind(id, tid),
+          // Só insere se o evento existe neste escritório (a chave estrangeira também garante).
+          ...userIds.map((u) =>
+            db.prepare("INSERT INTO eventos_participantes (id, tenant_id, evento_id, user_id, criado_em) VALUES (?, ?, ?, ?, ?)").bind(crypto.randomUUID(), tid, id, u, ts),
+          ),
+        ];
+        const r = await db.batch(comandos);
+        return (r[0]?.meta.changes ?? 0) > 0;
+      },
+      async excluirCompleto(id) {
+        const r = await db.batch([
+          db.prepare("DELETE FROM eventos_participantes WHERE evento_id = ? AND tenant_id = ?").bind(id, tid),
+          db.prepare("DELETE FROM eventos_agenda WHERE id = ? AND tenant_id = ?").bind(id, tid),
+        ]);
+        return (r[1]?.meta.changes ?? 0) > 0;
       },
     },
     auditoria: {

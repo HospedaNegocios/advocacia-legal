@@ -6,6 +6,7 @@ import type { FaseProcesso, LinhaAndamento, LinhaProcesso, ParteDetalhada, Repos
 import { exigirSessao } from "../sessao";
 import { lerJson, respostaErro } from "../validacao";
 import { ehFase, validarAndamento, validarParte, validarProcesso } from "../validacao-processos";
+import { eventosPublicos, hojeDoEscritorio, prazoPublico } from "./agenda-comum";
 import { anexoDaEntidade, apagarAnexo, baixarAnexo, ehConflitoDeUnicidade, enviarAnexo, linkDoAnexo, listarAnexos, numeroPositivo, registrar, repoDaSessao } from "./comum";
 
 // Processos do escritório. Todos os perfis criam e editam; só o sócio desativa/reativa e apaga anexos e andamentos.
@@ -325,6 +326,25 @@ rotasProcessos.delete("/:id/andamentos/:andamentoId", exigirSocio, async (c) => 
   await repo.andamentos.excluir(a.id);
   await registrar(c, "andamento_excluido", "processos_andamentos", a.id, { processo_id: p.id, data: a.data });
   return c.json({ ok: true });
+});
+
+// ---------- Prazos e agenda do processo (somente leitura; criar e editar pelas rotas /api/prazos e /api/agenda) ----------
+
+rotasProcessos.get("/:id/prazos", async (c) => {
+  const repo = repoDaSessao(c);
+  const p = await processoOu404(c, repo);
+  if (!p) return respostaErro(c, 404, "Processo não encontrado.");
+  const hoje = hojeDoEscritorio();
+  const r = await repo.prazos.pesquisar({ processo_id: p.id, limite: 200 });
+  return c.json({ ok: true, hoje, prazos: r.itens.map((x) => prazoPublico(x, hoje)), total: r.total });
+});
+
+rotasProcessos.get("/:id/eventos", async (c) => {
+  const repo = repoDaSessao(c);
+  const p = await processoOu404(c, repo);
+  if (!p) return respostaErro(c, 404, "Processo não encontrado.");
+  const lista = await repo.eventos.pesquisar({ processo_id: p.id, limite: 200 });
+  return c.json({ ok: true, eventos: await eventosPublicos(c, repo, lista) });
 });
 
 // ---------- Anexos ----------

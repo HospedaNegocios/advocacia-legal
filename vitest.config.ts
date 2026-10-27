@@ -11,7 +11,12 @@ export default defineConfig(async () => {
         miniflare: {
           compatibilityDate: "2026-08-01",
           d1Databases: ["DB"],
-          bindings: { AMBIENTE: "teste", MIGRACOES_TESTE: migrations },
+          bindings: {
+            AMBIENTE: "teste",
+            MIGRACOES_TESTE: migrations,
+            // Valor FIXO só para testes (bytes 0..31 em base64). Não é segredo real.
+            CHAVE_CRIPTO: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+          },
           assets: { directory: "./test/ativos-vazios", binding: "ASSETS" },
         },
       }),

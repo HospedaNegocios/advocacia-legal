@@ -6,7 +6,7 @@ export interface DadoBarra {
   chave: string;
   rotulo: string;
   valor: number;
-  /** Só use cor própria para ORDINAL (ex.: planos Solo<Escritório<Banca). Barras nominais usam sempre a série 1. */
+  /** Só use cor própria para ORDINAL (ex.: planos Individual<Equipe<Sociedade). Barras nominais usam sempre a série 1. */
   cor?: string | undefined;
 }
 

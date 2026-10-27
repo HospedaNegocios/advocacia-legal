@@ -14,5 +14,5 @@
 | IA | Resumo da intimação em linguagem simples, publicado só após aprovação | Ata de audiência por transcrição |
 | Painel do dono | Criar, ativar, suspender escritórios; definir plano; ver uso | Relatórios de receita |
 
-Referência de mercado: TORIX (https://www.torix.com.br/) — Solo R$ 49,99, Escritório R$ 99,99, Banca R$ 149.
+Referência de mercado: TORIX (https://www.torix.com.br/) — Solo R$ 49,99, Escritório R$ 99,99, Banca R$ 149. Os nomes e preços dos nossos planos foram trocados em 2026-10-27 para não ficarem parecidos com o concorrente.
 

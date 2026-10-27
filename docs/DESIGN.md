@@ -56,7 +56,7 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 ## Regras de gráficos (resumo do guia dataviz)
 - Escolha a forma pelo trabalho: um número = `Indicador`; razão contra limite = `Medidor`; comparar = `Barras`; parte do todo = `Empilhada` (preferida à pizza); tendência = `Linha`. Mais de ~7 classes: tabela.
 - Uma série: sem legenda (o título diz). **Duas ou mais: legenda obrigatória.**
-- Barras nominais usam sempre a série 1. Categorias com ordem natural (planos Solo < Escritório < Banca) usam a rampa ordinal.
+- Barras nominais usam sempre a série 1. Categorias com ordem natural (planos Individual < Equipe < Sociedade) usam a rampa ordinal.
 - Cores de série em ordem fixa, nunca reordenadas nem recoloridas por filtro; máximo 8 (passou disso: agrupe em "Outros").
 - Cores de estado (`--grafico-bom|aviso|critico`) só quando a cor significa bom/ruim, sempre com ícone + rótulo.
 - Nunca eixo duplo. Marcas finas: barra ≤ 24px com 4px arredondado só na ponta; linha 2px; ponto ≥ 8px com anel de 2px da cor da superfície; área a ~10%; grade de 1px sólida; 2px de espaço entre segmentos (sem contorno).

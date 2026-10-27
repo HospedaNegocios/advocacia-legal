@@ -27,6 +27,12 @@
 - O texto com valor legal é o publicado no Diário; o sistema é auxiliar.
 - Se o teste a partir do Worker der 403: alternativas a decidir com o usuário (proxy no Brasil ou serviço pago).
 
+## Teste a partir do Worker
+
+Rota do dono da plataforma (com 2FA): `POST /api/plataforma/diagnostico/djen`, tela **Diagnóstico** no app. Faz uma única consulta ao DJEN (TJSP, publicações de hoje no fuso de São Paulo, 5 itens) e devolve código HTTP, tempo, data center da Cloudflare (`colo`), país, quantidade de itens e, se falhar, os primeiros 300 caracteres da resposta. Limite de 1 teste a cada 10 s. Não guarda o conteúdo da resposta; só registra `status` e tempo no log de auditoria.
+
+Resultado: pendente
+
 ## Fontes
 
 - https://github.com/edilsonfs/apis-publicas-tribunais-orgaos

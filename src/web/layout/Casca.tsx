@@ -1,4 +1,4 @@
-import { Briefcase, Building2, CalendarDays, ChevronsLeft, ChevronsRight, Gavel, House, LayoutDashboard, Menu, Scale, Users, Wallet, X, Bell } from "lucide-react";
+import { Briefcase, Building2, CalendarDays, ChevronsLeft, ChevronsRight, Gavel, House, Stethoscope, LayoutDashboard, Menu, Scale, Users, Wallet, X, Bell } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -19,6 +19,7 @@ export interface ItemMenu {
 const MENU_DONO: ItemMenu[] = [
   { para: "/", rotulo: "Painel", icone: LayoutDashboard },
   { para: "/escritorios", rotulo: "Escritórios", icone: Building2 },
+  { para: "/diagnostico", rotulo: "Diagnóstico", icone: Stethoscope },
 ];
 
 const MODULOS_BREVE: ItemMenu[] = [

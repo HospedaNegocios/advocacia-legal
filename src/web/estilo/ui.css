@@ -6,7 +6,7 @@
   border-radius: var(--raio-md); border: 1px solid var(--btn-borda); background: var(--btn-bg); color: var(--btn-fg);
   font-weight: 600; font-size: var(--texto-sm); line-height: 1; cursor: pointer; text-decoration: none; white-space: nowrap;
   transition: background var(--dur-rapida) var(--ease), border-color var(--dur-rapida) var(--ease), transform var(--dur-rapida) var(--ease); }
-.btn:hover:not(:disabled):not([aria-disabled="true"]) { --btn-bg: var(--cor-marca-hover); --btn-borda: var(--cor-marca-hover); color: var(--btn-fg); }
+.btn:not(.btn-secundario):not(.btn-fantasma):not(.btn-perigo):hover:not(:disabled):not([aria-disabled="true"]) { --btn-bg: var(--cor-marca-hover); --btn-borda: var(--cor-marca-hover); color: var(--btn-fg); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
 .btn-secundario { --btn-bg: var(--cor-superficie); --btn-fg: var(--cor-texto); --btn-borda: var(--cor-borda-campo); }
@@ -198,3 +198,6 @@ select.entrada-compacta { min-width: 8.5rem; min-height: 2.25rem; font-size: var
 .modulo strong { display: block; color: var(--cor-texto); font-size: var(--texto-sm); }
 .modulo small { font-size: var(--texto-xs); }
 .item-lista-venc { display: flex; align-items: center; gap: var(--e-3); }
+
+/* Trecho de resposta de erro (diagnóstico): código em bloco discreto. */
+.bloco-codigo { margin: var(--e-3) 0 0; padding: var(--e-3); background: var(--cor-superficie-3); color: var(--cor-texto-2); border-radius: var(--raio-sm); font-family: var(--fonte-mono); font-size: var(--texto-sm); white-space: pre-wrap; overflow-wrap: anywhere; }

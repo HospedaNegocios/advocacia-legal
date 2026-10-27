@@ -108,5 +108,6 @@ Rotação do token Cloudflare: a cada 90 dias. Registrar aqui a data da última 
 - [x] Criar `CLOUDFLARE_API_TOKEN` e salvar nos GitHub Secrets (usuário, com guia)
 - [x] Domínio `advocacia.legal` ativo na Cloudflare (usuário confirmou em 2026-10-27)
 - [ ] Endereço da empresa e nome do encarregado (DPO) (usuário)
-- [ ] **Próximo passo: Fase 0 (fundação)** — ver `docs/ROADMAP.md`
+- [x] Fase 0, parte 1 (fundação) pronta **localmente** na branch `fase-0-fundacao` (pendente: PR para `develop` e revisão): projeto TS/Hono/React/Vitest/Wrangler, `wrangler.jsonc` com envs dev/prod, migrações D1 (`tenants`, `users`, `sessions`, `audit_log`), camada de dados com `tenant_id` obrigatório (`src/server/db/repositorio.ts`) + testes de isolamento, `GET /api/saude`, CI e deploy no GitHub Actions. Ainda não implantado.
+- [ ] **Próximo passo: Fase 0, parte 2** — login, sessão, 2FA, perfis e painel do dono (ver `docs/ROADMAP.md`)
 

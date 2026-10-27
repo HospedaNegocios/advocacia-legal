@@ -27,9 +27,9 @@ export function normalizarNumeroProcesso(v: unknown): string | null {
 export function normalizarData(v: unknown): string | null {
   const t = texto(v, 40);
   if (!t) return null;
-  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  const br = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(t);
+  const br = t.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
   if (br) return `${br[3]}-${br[2]}-${br[1]}`;
   return null;
 }

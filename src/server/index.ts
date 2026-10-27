@@ -16,6 +16,9 @@ import { rotasAgenda } from "./rotas/agenda";
 import { rotasInicio } from "./rotas/inicio";
 import { rotasAlertas } from "./rotas/alertas";
 import { rotasFinanceiro } from "./rotas/financeiro";
+import { rotasIntimacoes } from "./rotas/intimacoes";
+import { coletaDiaria } from "./djen/coleta";
+import { depsDjen } from "./djen/ambiente";
 import { aoAgendar } from "./alertas-email";
 
 // REGRA DE SEGURANÇA: o escritório (tenant) vem SEMPRE da sessão do usuário (cookie validado
@@ -47,6 +50,7 @@ app.route("/api/agenda", rotasAgenda);
 app.route("/api/inicio", rotasInicio);
 app.route("/api/alertas", rotasAlertas);
 app.route("/api/financeiro", rotasFinanceiro);
+app.route("/api/intimacoes", rotasIntimacoes);
 
 app.notFound((c) => {
   // Rotas /api desconhecidas devolvem JSON; o restante é tratado pelos arquivos estáticos (SPA).
@@ -67,5 +71,9 @@ export default {
   // Cron Trigger diário (wrangler.jsonc): e-mail de prazos. Erros nunca saem com dados pessoais.
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(aoAgendar(env, controller.scheduledTime).then(() => undefined, (e: unknown) => console.error("alertas-email-erro", e instanceof Error ? e.name : "desconhecido")));
+    // Mesmo Cron: busca das publicações do DJEN (1 requisição por segundo; ver src/server/djen/coleta.ts). "DJEN_COLETA_ATIVA=false" desliga.
+    if (env.DJEN_COLETA_ATIVA !== "false") {
+      ctx.waitUntil(coletaDiaria(depsDjen(env.DB)).then(() => undefined, (e: unknown) => console.error("djen-coleta-erro", e instanceof Error ? e.name : "desconhecido")));
+    }
   },
 } satisfies ExportedHandler<Env>;

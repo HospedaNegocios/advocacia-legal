@@ -108,6 +108,8 @@ rotasProcessos.post("/", async (c) => {
     throw e;
   }
   await registrar(c, "processo_criado", "processos", id, { fase: v.dados.fase });
+  // Intimações que chegaram antes do cadastro do processo passam a apontar para ele (pelo número CNJ).
+  await repo.intimacoes.vincularOrfas().catch(() => 0);
   const criado = await repo.processos.buscar(id);
   return c.json({ ok: true, processo: criado ? (await comRelacionados(repo, [criado]))[0] : null }, 201);
 });
@@ -140,6 +142,7 @@ rotasProcessos.put("/:id", async (c) => {
   // Auditoria guarda só os nomes dos campos alterados.
   const alterados = CAMPOS_PROCESSO.filter((campo) => (atual[campo] ?? null) !== v.dados[campo]);
   await registrar(c, "processo_alterado", "processos", atual.id, { campos: alterados.join(",") });
+  if (alterados.includes("numero_cnj")) await repo.intimacoes.vincularOrfas().catch(() => 0);
   const novo = await repo.processos.buscar(atual.id);
   return c.json({ ok: true, processo: novo ? (await comRelacionados(repo, [novo]))[0] : null });
 });

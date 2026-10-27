@@ -36,9 +36,9 @@ export async function decifrar(valor: string, chaveBase64: string | undefined): 
   return new TextDecoder().decode(claro);
 }
 
-async function chaveDeAssinatura(chaveBase64: string | undefined, uso: KeyUsage): Promise<CryptoKey> {
+async function chaveDeAssinatura(chaveBase64: string | undefined, uso: KeyUsage, proposito = "advocacia.legal/desafio-2fa/v1"): Promise<CryptoKey> {
   const mestra = await crypto.subtle.importKey("raw", bytesDaChave(chaveBase64), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const subchave = await crypto.subtle.sign("HMAC", mestra, textoParaBytes("advocacia.legal/desafio-2fa/v1"));
+  const subchave = await crypto.subtle.sign("HMAC", mestra, textoParaBytes(proposito));
   return crypto.subtle.importKey("raw", subchave, { name: "HMAC", hash: "SHA-256" }, false, [uso]);
 }
 
@@ -66,5 +66,32 @@ export async function verificarDesafio(desafio: string, chaveBase64: string | un
     return dados.u;
   } catch {
     return null;
+  }
+}
+
+// ---------- Link temporário de download de anexo ----------
+// Subchave própria (derivada da CHAVE_CRIPTO) só para este fim: um link de anexo nunca vale como desafio de 2FA.
+const PROPOSITO_LINK_ANEXO = "advocacia.legal/link-anexo/v1";
+export const VALIDADE_LINK_ANEXO_MS = 5 * 60 * 1000;
+
+export async function criarLinkAnexo(tenantId: string, anexoId: string, chaveBase64: string | undefined, agoraMs = Date.now()): Promise<string> {
+  const payload = bytesParaBase64Url(textoParaBytes(JSON.stringify({ t: tenantId, a: anexoId, e: agoraMs + VALIDADE_LINK_ANEXO_MS, p: "anexo" })));
+  const chave = await chaveDeAssinatura(chaveBase64, "sign", PROPOSITO_LINK_ANEXO);
+  const assinatura = new Uint8Array(await crypto.subtle.sign("HMAC", chave, textoParaBytes(payload)));
+  return `${payload}.${bytesParaBase64Url(assinatura)}`;
+}
+
+/** Confere assinatura, validade, escritório e anexo. Verdadeiro só se tudo bater. */
+export async function verificarLinkAnexo(token: string, tenantId: string, anexoId: string, chaveBase64: string | undefined, agoraMs = Date.now()): Promise<boolean> {
+  try {
+    const [payload, assinatura] = token.split(".");
+    if (!payload || !assinatura) return false;
+    const chave = await chaveDeAssinatura(chaveBase64, "sign", PROPOSITO_LINK_ANEXO);
+    const esperada = new Uint8Array(await crypto.subtle.sign("HMAC", chave, textoParaBytes(payload)));
+    if (!iguaisEmTempoConstante(esperada, base64UrlParaBytes(assinatura))) return false;
+    const d = JSON.parse(new TextDecoder().decode(base64UrlParaBytes(payload))) as { t?: unknown; a?: unknown; e?: unknown; p?: unknown };
+    return d.p === "anexo" && d.t === tenantId && d.a === anexoId && typeof d.e === "number" && d.e > agoraMs;
+  } catch {
+    return false;
   }
 }

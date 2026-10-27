@@ -36,7 +36,7 @@ export function ehPerfil(v: unknown): v is Perfil {
   return typeof v === "string" && (PERFIS as readonly string[]).includes(v);
 }
 
-export function respostaErro(c: Ctx, status: 400 | 401 | 403 | 404 | 409 | 429 | 500, erro: string) {
+export function respostaErro(c: Ctx, status: 400 | 401 | 403 | 404 | 409 | 413 | 429 | 500, erro: string) {
   return c.json({ ok: false, erro }, status);
 }
 
@@ -77,9 +77,9 @@ export function cnpjValido(valor: string): boolean {
 }
 
 /** Resultado de um campo opcional: `undefined` = vazio (vira NULL); `false` = inválido. */
-type Opcional<T> = T | null | false;
+export type Opcional<T> = T | null | false;
 
-function textoOpcional(valor: unknown, maximo: number): Opcional<string> {
+export function textoOpcional(valor: unknown, maximo: number): Opcional<string> {
   if (valor === undefined || valor === null) return null;
   if (typeof valor !== "string") return false;
   const t = valor.trim().replace(/\s+/g, " ");
@@ -87,7 +87,7 @@ function textoOpcional(valor: unknown, maximo: number): Opcional<string> {
   return t.length <= maximo ? t : false;
 }
 
-function digitosOpcional(valor: unknown, aceita: (d: string) => boolean): Opcional<string> {
+export function digitosOpcional(valor: unknown, aceita: (d: string) => boolean): Opcional<string> {
   if (valor === undefined || valor === null) return null;
   if (typeof valor !== "string") return false;
   const d = apenasDigitos(valor);

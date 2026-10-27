@@ -40,6 +40,7 @@
 select.entrada { appearance: none; padding-right: 2.25rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23788' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; }
 select.entrada-compacta { min-width: 8.5rem; min-height: 2.25rem; font-size: var(--texto-sm); padding-left: var(--e-2); }
 @media (max-width: 767.98px) { select.entrada-compacta { min-height: var(--alvo-toque); } }
+.entrada-area { padding: var(--e-3); min-height: 6rem; resize: vertical; line-height: 1.5; }
 .entrada-codigo { text-align: center; font-size: var(--texto-xl); letter-spacing: 0.4em; font-variant-numeric: tabular-nums; font-weight: 600; }
 .campo-marcar { display: flex; align-items: flex-start; gap: var(--e-3); min-height: var(--alvo-toque); cursor: pointer; }
 .campo-marcar input { width: 1.25rem; height: 1.25rem; margin-top: 0.15rem; accent-color: var(--cor-marca); flex: none; }
@@ -212,3 +213,19 @@ select.entrada-compacta { min-width: 8.5rem; min-height: 2.25rem; font-size: var
   .uso-oabs-acao, .uso-oabs-acao .btn { width: 100%; }
 }
 .entrada[readonly] { background: var(--cor-superficie-2); }
+
+/* Clientes: filtros e paginação das listas */
+.barra-filtros { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--e-3); padding: var(--e-4); border-bottom: 1px solid var(--cor-borda); align-items: end; }
+@media (max-width: 767.98px) { .barra-filtros { grid-template-columns: minmax(0, 1fr); } }
+.paginacao { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--e-3); padding: var(--e-3) var(--e-4); border-top: 1px solid var(--cor-borda); }
+.paginacao-botoes { display: flex; gap: var(--e-2); }
+.lista-simples { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e-3); }
+.item-lista { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--e-3); padding: var(--e-3) var(--e-4); border: 1px solid var(--cor-borda); border-radius: var(--raio-md); background: var(--cor-superficie); }
+.item-lista-texto { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.item-lista-texto small { color: var(--cor-texto-2); font-size: var(--texto-xs); }
+.lista-dados { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--e-4); margin: 0; }
+.lista-dados dt { font-size: var(--texto-xs); color: var(--cor-texto-2); margin-bottom: 2px; }
+.lista-dados dd { margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+.abas-acao { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--e-3); margin-bottom: var(--e-4); }
+.so-leitor-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (max-width: 479.98px) { .aba { padding: 0 var(--e-3); } }

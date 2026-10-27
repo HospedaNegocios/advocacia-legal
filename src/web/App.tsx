@@ -3,6 +3,8 @@ import { Casca } from "./layout/Casca";
 import { TelaAcesso } from "./layout/TelaAcesso";
 import { AceitarAcesso } from "./paginas/AceitarAcesso";
 import { Configurar2fa } from "./paginas/Configurar2fa";
+import { ClienteDetalhe } from "./paginas/ClienteDetalhe";
+import { Clientes } from "./paginas/Clientes";
 import { Diagnostico } from "./paginas/Diagnostico";
 import { Equipe } from "./paginas/Equipe";
 import { Escritorio } from "./paginas/Escritorio";
@@ -55,6 +57,8 @@ function Rotas() {
   else if (caminho === "/diagnostico" && dono) conteudo = <Diagnostico />;
   else if (caminho === "/equipe" && eu.usuario.perfil === "socio") conteudo = <Equipe />;
   else if (caminho === "/escritorio" && !dono) conteudo = <Escritorio />;
+  else if (caminho === "/clientes" && !dono) conteudo = <Clientes />;
+  else if (caminho.startsWith("/clientes/") && !dono) conteudo = <ClienteDetalhe id={caminho.slice("/clientes/".length)} />;
   else if (caminho === "/seguranca") conteudo = <Configurar2fa obrigatorio={false} />;
   return <Casca>{conteudo}</Casca>;
 }

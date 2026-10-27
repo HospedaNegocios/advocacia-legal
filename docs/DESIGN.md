@@ -42,7 +42,7 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | Componente | Uso |
 | --- | --- |
 | `Botao` (`variante`: primario, secundario, fantasma, perigo; `tamanho`; `carregando`; `somenteIcone` com `aria-label`) | Toda ação |
-| `Entrada`, `Selecao`, `SelecaoCompacta`, `CampoMarcar`, `Formulario` | Campos com rótulo, ajuda e erro ligados por aria |
+| `Entrada`, `AreaTexto`, `Selecao`, `SelecaoCompacta`, `CampoMarcar`, `Formulario` | Campos com rótulo, ajuda e erro ligados por aria |
 | `Cartao` | Bloco de conteúdo (`titulo`, `subtitulo`, `acoes`, `semPadding`) |
 | `Indicador` | KPI: valor, variação com seta + texto + período, `tendencia` (Sparkline) |
 | `Selo`, `SeloSituacao` | Estado com ícone + texto (teste, ativo, suspenso, cancelado) |

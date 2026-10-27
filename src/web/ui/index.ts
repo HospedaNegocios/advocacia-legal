@@ -1,7 +1,7 @@
 // Biblioteca de interface da advocacia.legal. Importe sempre daqui: import { Botao } from "../ui".
 export { Botao, classeBotao } from "./Botao";
 export type { VarianteBotao, TamanhoBotao } from "./Botao";
-export { Entrada, Selecao, SelecaoCompacta, CampoMarcar, Formulario } from "./Campos";
+export { AreaTexto, Entrada, Selecao, SelecaoCompacta, CampoMarcar, Formulario } from "./Campos";
 export { Cartao } from "./Cartao";
 export { Aviso } from "./Aviso";
 export { Selo, SeloSituacao, SITUACAO } from "./Selo";

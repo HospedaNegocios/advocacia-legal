@@ -1,4 +1,4 @@
-import { Briefcase, Building2, CalendarDays, ChevronsLeft, ChevronsRight, Gavel, House, Stethoscope, LayoutDashboard, Menu, Scale, Users, Wallet, X, Bell } from "lucide-react";
+import { Briefcase, Contact, Building2, CalendarDays, ChevronsLeft, ChevronsRight, Gavel, House, Stethoscope, LayoutDashboard, Menu, Scale, Users, Wallet, X, Bell } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -23,7 +23,6 @@ const MENU_DONO: ItemMenu[] = [
 ];
 
 const MODULOS_BREVE: ItemMenu[] = [
-  { rotulo: "Clientes", icone: Users, emBreve: true, descricao: "Cadastro de pessoas físicas e jurídicas" },
   { rotulo: "Processos", icone: Briefcase, emBreve: true, descricao: "Processos pelo número CNJ" },
   { rotulo: "Prazos", icone: Bell, emBreve: true, descricao: "Prazos fatais e alertas" },
   { rotulo: "Agenda", icone: CalendarDays, emBreve: true, descricao: "Audiências, reuniões e diligências" },
@@ -86,7 +85,7 @@ export function Casca({ children }: { children: ReactNode }) {
 
   const principais: ItemMenu[] = usuario.dono_plataforma
     ? MENU_DONO
-    : [{ para: "/", rotulo: "Início", icone: House }, { para: "/escritorio", rotulo: "Escritório", icone: Building2 }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
+    : [{ para: "/", rotulo: "Início", icone: House }, { para: "/clientes", rotulo: "Clientes", icone: Contact }, { para: "/escritorio", rotulo: "Escritório", icone: Building2 }, ...(usuario.perfil === "socio" ? [{ para: "/equipe", rotulo: "Equipe", icone: Users }] : [])];
   const futuros = usuario.dono_plataforma ? [] : MODULOS_BREVE;
 
   const renderItem = (item: ItemMenu) => {

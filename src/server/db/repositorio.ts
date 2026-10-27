@@ -117,6 +117,107 @@ export interface LinhaPerfilEscritorio {
   atualizado_em: string;
 }
 
+export interface LinhaCliente {
+  id: string;
+  tenant_id: string;
+  tipo: "pf" | "pj";
+  nome: string;
+  nome_busca: string;
+  nome_fantasia: string | null;
+  documento: string | null;
+  rg: string | null;
+  inscricao_estadual: string | null;
+  data_nascimento: string | null;
+  email: string | null;
+  telefone: string | null;
+  celular: string | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+  observacoes: string | null;
+  ativo: number;
+  criado_por: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Campos do cadastro do cliente que o escritório grava (o resto é controlado pela camada). */
+export const CAMPOS_CLIENTE = [
+  "tipo", "nome", "nome_fantasia", "documento", "rg", "inscricao_estadual", "data_nascimento", "email", "telefone", "celular",
+  "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf", "observacoes",
+] as const;
+export type DadosCliente = { [K in (typeof CAMPOS_CLIENTE)[number]]: string | null } & { tipo: "pf" | "pj"; nome: string };
+
+export interface LinhaContatoCliente {
+  id: string;
+  tenant_id: string;
+  cliente_id: string;
+  nome: string;
+  cargo: string | null;
+  email: string | null;
+  telefone: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export type EntidadeAnexo = "cliente" | "processo";
+
+export interface LinhaAnexo {
+  id: string;
+  tenant_id: string;
+  entidade: EntidadeAnexo;
+  entidade_id: string;
+  nome_original: string;
+  tipo_mime: string;
+  tamanho_bytes: number;
+  chave_r2: string;
+  enviado_por: string | null;
+  criado_em: string;
+}
+
+export interface LinhaConsentimento {
+  id: string;
+  tenant_id: string;
+  cliente_id: string;
+  finalidade: string;
+  base_legal: string | null;
+  forma: string;
+  data_consentimento: string;
+  revogado_em: string | null;
+  registrado_por: string | null;
+  criado_em: string;
+}
+
+export interface FiltroClientes {
+  /** Texto digitado na busca (nome, nome fantasia ou documento). */
+  busca?: string;
+  tipo?: "pf" | "pj";
+  ativo?: boolean;
+  limite?: number;
+  deslocamento?: number;
+}
+
+export interface ResumoClientes {
+  ativos: number;
+  pf: number;
+  pj: number;
+  novos_30_dias: number;
+}
+
+/** Minúsculas e sem acentos: usado na busca por nome. */
+export function normalizarBusca(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Campos do perfil que o escritório pode gravar (tenant_id e atualizado_em são da camada). */
 export const CAMPOS_PERFIL = [
   "razao_social", "documento", "email_contato", "telefone", "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf",
@@ -131,6 +232,10 @@ interface LinhasPorTabela {
   sessions: LinhaSessao;
   tokens_acesso: LinhaTokenAcesso;
   audit_log: LinhaAuditoria;
+  clientes: LinhaCliente;
+  clientes_contatos: LinhaContatoCliente;
+  anexos: LinhaAnexo;
+  consentimentos_lgpd: LinhaConsentimento;
 }
 export type TabelaDoEscritorio = keyof LinhasPorTabela;
 
@@ -184,6 +289,30 @@ const TABELAS: Readonly<Record<TabelaDoEscritorio, ConfigTabela>> = {
     temAtualizadoEm: false,
     imutavel: true,
   },
+  clientes: {
+    inserivel: ["id", "nome_busca", "ativo", "criado_por", "criado_em", "atualizado_em", ...CAMPOS_CLIENTE],
+    atualizavel: ["nome_busca", "ativo", ...CAMPOS_CLIENTE],
+    temAtualizadoEm: true,
+    imutavel: false,
+  },
+  clientes_contatos: {
+    inserivel: ["id", "cliente_id", "nome", "cargo", "email", "telefone", "criado_em", "atualizado_em"],
+    atualizavel: ["nome", "cargo", "email", "telefone"],
+    temAtualizadoEm: true,
+    imutavel: false,
+  },
+  anexos: {
+    inserivel: ["id", "entidade", "entidade_id", "nome_original", "tipo_mime", "tamanho_bytes", "chave_r2", "enviado_por", "criado_em"],
+    atualizavel: [],
+    temAtualizadoEm: false,
+    imutavel: false,
+  },
+  consentimentos_lgpd: {
+    inserivel: ["id", "cliente_id", "finalidade", "base_legal", "forma", "data_consentimento", "revogado_em", "registrado_por", "criado_em"],
+    atualizavel: ["revogado_em"],
+    temAtualizadoEm: false,
+    imutavel: false,
+  },
 };
 
 // Colunas aceitas em filtros de leitura (além de tenant_id, que é sempre aplicado).
@@ -193,6 +322,10 @@ const COLUNAS_FILTRO: Readonly<Record<TabelaDoEscritorio, readonly string[]>> = 
   sessions: ["id", "user_id"],
   tokens_acesso: ["id", "user_id", "tipo"],
   audit_log: ["id", "user_id", "acao", "entidade", "entidade_id"],
+  clientes: ["id", "tipo", "ativo", "documento"],
+  clientes_contatos: ["id", "cliente_id"],
+  anexos: ["id", "entidade", "entidade_id", "enviado_por"],
+  consentimentos_lgpd: ["id", "cliente_id"],
 };
 
 const LIMITE_PADRAO = 50;
@@ -289,6 +422,15 @@ export interface Repositorio {
   };
   sessions: RepositorioTabela<LinhaSessao>;
   tokens: RepositorioTabela<LinhaTokenAcesso>;
+  /** Clientes. `nome_busca` é calculado aqui a partir de nome e nome fantasia (não vem de fora). */
+  clientes: RepositorioTabela<LinhaCliente> & {
+    pesquisar(filtro?: FiltroClientes): Promise<{ itens: LinhaCliente[]; total: number }>;
+    resumo(): Promise<ResumoClientes>;
+  };
+  contatos: RepositorioTabela<LinhaContatoCliente>;
+  /** Metadados dos anexos. O arquivo em si fica no R2 (ver src/server/anexos.ts). */
+  anexos: RepositorioTabela<LinhaAnexo>;
+  consentimentos: RepositorioTabela<LinhaConsentimento>;
   /** Auditoria: só leitura e registro (sem alterar/excluir). */
   auditoria: {
     registrar(entrada: EntradaAuditoria): Promise<string>;
@@ -411,6 +553,7 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
   const tid = exigirTenantId(tenantId);
   const auditoriaBase = montarTabela(db, tid, "audit_log");
   const oabsBase = montarTabela(db, tid, "oabs");
+  const clientesBase = montarTabela(db, tid, "clientes");
 
   return {
     tenantId: tid,
@@ -479,6 +622,74 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
     },
     sessions: montarTabela(db, tid, "sessions"),
     tokens: montarTabela(db, tid, "tokens_acesso"),
+    clientes: {
+      ...clientesBase,
+      async inserir(dados) {
+        const d = dados as Partial<LinhaCliente>;
+        return clientesBase.inserir({ ...dados, nome_busca: normalizarBusca(`${d.nome ?? ""} ${d.nome_fantasia ?? ""}`) });
+      },
+      async atualizar(id, dados) {
+        const d = dados as Partial<LinhaCliente>;
+        if (d.nome === undefined && d.nome_fantasia === undefined) return clientesBase.atualizar(id, dados);
+        const atual = await clientesBase.buscar(id);
+        if (!atual) return false;
+        const nome = d.nome ?? atual.nome;
+        const fantasia = d.nome_fantasia === undefined ? atual.nome_fantasia : d.nome_fantasia;
+        return clientesBase.atualizar(id, { ...dados, nome_busca: normalizarBusca(`${nome} ${fantasia ?? ""}`) });
+      },
+      async pesquisar(filtro = {}) {
+        const condicoes = ["tenant_id = ?"];
+        const params: Valor[] = [tid];
+        if (filtro.tipo) {
+          condicoes.push("tipo = ?");
+          params.push(filtro.tipo);
+        }
+        if (filtro.ativo !== undefined) {
+          condicoes.push("ativo = ?");
+          params.push(filtro.ativo ? 1 : 0);
+        }
+        const busca = (filtro.busca ?? "").trim().slice(0, 100);
+        if (busca) {
+          const escapar = (t: string) => t.replace(/[\\%_]/g, (c) => `\\${c}`);
+          const partes = ["nome_busca LIKE ? ESCAPE '\\'"];
+          params.push(`%${escapar(normalizarBusca(busca))}%`);
+          const digitos = busca.replace(/\D/g, "");
+          if (digitos.length >= 3 && /^[\d.\-/\s]+$/.test(busca)) {
+            partes.push("documento LIKE ?");
+            params.push(`%${digitos}%`);
+          }
+          condicoes.push(`(${partes.join(" OR ")})`);
+        }
+        const onde = condicoes.join(" AND ");
+        const limite = Math.min(Math.max(Math.trunc(filtro.limite ?? 20), 1), 100);
+        const deslocamento = Math.max(Math.trunc(filtro.deslocamento ?? 0), 0);
+        const [lista, total] = await Promise.all([
+          db
+            .prepare(`SELECT * FROM clientes WHERE ${onde} ORDER BY nome_busca, id LIMIT ? OFFSET ?`)
+            .bind(...params, limite, deslocamento)
+            .all<LinhaCliente>(),
+          db.prepare(`SELECT COUNT(*) AS n FROM clientes WHERE ${onde}`).bind(...params).first<{ n: number }>(),
+        ]);
+        return { itens: lista.results, total: total?.n ?? 0 };
+      },
+      async resumo() {
+        const corte = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+        const l = await db
+          .prepare(
+            `SELECT COALESCE(SUM(ativo = 1), 0) AS ativos,
+                    COALESCE(SUM(ativo = 1 AND tipo = 'pf'), 0) AS pf,
+                    COALESCE(SUM(ativo = 1 AND tipo = 'pj'), 0) AS pj,
+                    COALESCE(SUM(criado_em >= ?), 0) AS novos_30_dias
+             FROM clientes WHERE tenant_id = ?`,
+          )
+          .bind(corte, tid)
+          .first<ResumoClientes>();
+        return l ?? { ativos: 0, pf: 0, pj: 0, novos_30_dias: 0 };
+      },
+    },
+    contatos: montarTabela(db, tid, "clientes_contatos"),
+    anexos: montarTabela(db, tid, "anexos"),
+    consentimentos: montarTabela(db, tid, "consentimentos_lgpd"),
     auditoria: {
       registrar: (e) =>
         auditoriaBase.inserir({

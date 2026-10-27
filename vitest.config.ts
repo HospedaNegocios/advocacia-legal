@@ -11,6 +11,7 @@ export default defineConfig(async () => {
         miniflare: {
           compatibilityDate: "2026-08-01",
           d1Databases: ["DB"],
+          r2Buckets: ["ARQUIVOS"],
           bindings: {
             AMBIENTE: "teste",
             MIGRACOES_TESTE: migrations,

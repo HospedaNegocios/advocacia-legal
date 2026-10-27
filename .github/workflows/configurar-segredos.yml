@@ -1,0 +1,53 @@
+name: configurar-segredos
+
+# Cria o segredo CHAVE_CRIPTO (chave de 32 bytes que protege os códigos do 2FA) no Cloudflare,
+# somente se ainda não existir. O valor é gerado aqui e nunca é exibido em log.
+# Requer que o Worker do ambiente já tenha sido publicado ao menos uma vez (deploy automático).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente
+        type: choice
+        required: true
+        options: [dev, prod]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: configurar-segredos-${{ inputs.ambiente }}
+  cancel-in-progress: false
+
+jobs:
+  configurar:
+    if: inputs.ambiente != 'prod' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AMBIENTE: ${{ inputs.ambiente }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Criar CHAVE_CRIPTO se não existir
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! lista="$(npx wrangler secret list --env "$AMBIENTE" --format json)"; then
+            echo "Não foi possível listar os segredos. O Worker de $AMBIENTE já foi publicado? (o deploy automático precisa ter rodado)" >&2
+            exit 1
+          fi
+          if printf '%s' "$lista" | jq -e 'map(.name) | index("CHAVE_CRIPTO") != null' > /dev/null; then
+            echo "CHAVE_CRIPTO já existe em $AMBIENTE. Nada a fazer (a chave existente é mantida)."
+          else
+            # A chave vai direto do gerador para o wrangler, sem passar por variável nem por echo.
+            openssl rand -base64 32 | npx wrangler secret put CHAVE_CRIPTO --env "$AMBIENTE" > /dev/null
+            echo "CHAVE_CRIPTO criada em $AMBIENTE."
+          fi

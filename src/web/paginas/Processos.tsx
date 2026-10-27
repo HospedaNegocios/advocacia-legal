@@ -212,7 +212,7 @@ export function Processos() {
         )}
         <div className="barra-filtros barra-filtros-4">
           <div className="barra-filtros-busca">
-            <Entrada rotulo="Buscar por número ou nome da parte" type="search" autoComplete="off" placeholder="Número CNJ, com ou sem pontos, ou nome" value={texto} onChange={(e) => setTexto(e.target.value)} />
+            <Entrada rotulo="Buscar por número ou nome da parte" type="search" autoComplete="off" placeholder="Número CNJ ou nome da parte" value={texto} onChange={(e) => setTexto(e.target.value)} />
           </div>
           <Selecao rotulo="Fase" value={fase} onChange={(e) => (setFase(e.target.value), setPagina(1))}>
             <option value="">Todas</option>

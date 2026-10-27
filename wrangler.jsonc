@@ -21,7 +21,18 @@
       "workers_dev": false,
       "preview_urls": false,
       "routes": [{ "pattern": "dev.app.advocacia.legal", "custom_domain": true }],
-      "vars": { "AMBIENTE": "dev" },
+      "vars": {
+        "AMBIENTE": "dev",
+        "URL_APP": "https://dev.app.advocacia.legal",
+        // E-mail diário de prazos: DESLIGADO até o domínio estar configurado no Email Service (docs/EMAIL.md).
+        "EMAIL_ALERTAS_ATIVO": "false",
+        // Remetente SUGERIDO, a confirmar com o dono (precisa ser de um domínio configurado no Email Sending).
+        "EMAIL_REMETENTE": "alertas@advocacia.legal"
+      },
+      // Cron Trigger usa UTC. 10:00 UTC = 07:00 em America/Sao_Paulo (UTC-3 o ano todo: o Brasil não tem horário de verão desde 2019).
+      "triggers": { "crons": ["0 10 * * *"] },
+      // Cloudflare Email Service (Email Sending). Sem restrição de destinatário: cada usuário recebe o próprio resumo.
+      "send_email": [{ "name": "EMAIL" }],
       "d1_databases": [
         {
           "binding": "DB",
@@ -37,7 +48,18 @@
       "workers_dev": false,
       "preview_urls": false,
       "routes": [{ "pattern": "app.advocacia.legal", "custom_domain": true }],
-      "vars": { "AMBIENTE": "prod" },
+      "vars": {
+        "AMBIENTE": "prod",
+        "URL_APP": "https://app.advocacia.legal",
+        // E-mail diário de prazos: DESLIGADO até o domínio estar configurado no Email Service (docs/EMAIL.md).
+        "EMAIL_ALERTAS_ATIVO": "false",
+        // Remetente SUGERIDO, a confirmar com o dono (precisa ser de um domínio configurado no Email Sending).
+        "EMAIL_REMETENTE": "alertas@advocacia.legal"
+      },
+      // Cron Trigger usa UTC. 10:00 UTC = 07:00 em America/Sao_Paulo (UTC-3 o ano todo: o Brasil não tem horário de verão desde 2019).
+      "triggers": { "crons": ["0 10 * * *"] },
+      // Cloudflare Email Service (Email Sending). Sem restrição de destinatário: cada usuário recebe o próprio resumo.
+      "send_email": [{ "name": "EMAIL" }],
       "d1_databases": [
         {
           "binding": "DB",

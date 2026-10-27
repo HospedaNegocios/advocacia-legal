@@ -52,6 +52,7 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | `Aviso`, `useToast` | Aviso em linha; notificação temporária |
 | `Modal`, `Confirmar` | Diálogo com foco preso, Esc fecha, devolve o foco |
 | `Abas` (abaixo de 768px as abas quebram de linha, todas visíveis), `Passos`, `Avatar`, `CabecalhoPagina` (com migalhas), `CopiarLink` | Navegação e identificação |
+| `AvisoDePrazos` (`src/web/layout/AlertasPrazos.tsx`) | Popup de prazos vencidos/hoje/amanhã do usuário (usa `Modal`, `SeloPrazo`); selo `.nav-contagem` no item Prazos do menu |
 | `SeletorBusca` | Escolher processo/cliente por busca (lista de resultados, trocar/remover) |
 | `Barras`, `Empilhada`, `Linha`, `Sparkline`, `Medidor` | Gráficos (abaixo) |
 

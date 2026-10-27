@@ -14,6 +14,8 @@ import { rotasProcessos } from "./rotas/processos";
 import { rotasPrazos } from "./rotas/prazos";
 import { rotasAgenda } from "./rotas/agenda";
 import { rotasInicio } from "./rotas/inicio";
+import { rotasAlertas } from "./rotas/alertas";
+import { aoAgendar } from "./alertas-email";
 
 // REGRA DE SEGURANÇA: o escritório (tenant) vem SEMPRE da sessão do usuário (cookie validado
 // no banco), nunca de parâmetro, corpo, cabeçalho ou cookie escolhido pelo navegador.
@@ -42,6 +44,7 @@ app.route("/api/processos", rotasProcessos);
 app.route("/api/prazos", rotasPrazos);
 app.route("/api/agenda", rotasAgenda);
 app.route("/api/inicio", rotasInicio);
+app.route("/api/alertas", rotasAlertas);
 
 app.notFound((c) => {
   // Rotas /api desconhecidas devolvem JSON; o restante é tratado pelos arquivos estáticos (SPA).
@@ -57,4 +60,10 @@ app.onError((erro, c) => {
   return c.json({ ok: false, erro: "Erro interno. Tente novamente." }, 500);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // Cron Trigger diário (wrangler.jsonc): e-mail de prazos. Erros nunca saem com dados pessoais.
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(aoAgendar(env, controller.scheduledTime).then(() => undefined, (e: unknown) => console.error("alertas-email-erro", e instanceof Error ? e.name : "desconhecido")));
+  },
+} satisfies ExportedHandler<Env>;

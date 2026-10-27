@@ -1,0 +1,8 @@
+# Cabeçalhos de segurança dos arquivos estáticos (a API recebe os mesmos pelo middleware
+# em src/server/seguranca.ts). Um teste garante que os dois lados continuam iguais.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY

@@ -5,7 +5,7 @@ Memória do projeto. Leia inteiro no início de cada sessão. Atualize a seção
 ## O que é
 
 SaaS jurídico por assinatura para escritórios de advocacia, cobrado por escritório.
-- App: `app.advocacia.legal` (um único domínio para todos os escritórios, marca advocacia.legal)
+- App: `app.advocacia.legal` (prod; dev em `dev.app.advocacia.legal`) (um único domínio para todos os escritórios, marca advocacia.legal)
 - Site de vendas: `advocacia.legal`
 - **Sem personalização visual por escritório:** o app e o portal do cliente usam somente a marca advocacia.legal. O escritório não envia nem usa a própria logo (decisão de 2026-10-27).
 - Ativação de clientes **manual** pelo dono da plataforma. Sem Stripe/gateway nesta fase.
@@ -28,6 +28,7 @@ SaaS jurídico por assinatura para escritórios de advocacia, cobrado por escrit
 | Multi-tenant | **Banco único D1**, coluna `tenant_id` em toda tabela de dados de escritório |
 | Domínio por cliente | **Não.** Um domínio só, controle total da gestão de escritórios |
 | Ambientes | dev e prod totalmente separados (Worker, D1, R2) |
+| Endereço do dev | **`dev.app.advocacia.legal`** (Custom Domain do Worker; certificado gerado automaticamente, sem custo extra — verificado na doc da Cloudflare em 2026-10-27) |
 | Git | GitHub `HospedaNegocios/advocacia-legal`. `develop` → dev, `main` → prod |
 | MVP | Acesso/equipe, config. do escritório (dados e OABs), clientes, processos, prazos, agenda, financeiro, portal do cliente, intimações DJEN, resumo por IA, painel do dono |
 | Teste grátis | 14 dias, sem cartão de crédito |

@@ -54,10 +54,10 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | `Abas` (abaixo de 768px as abas quebram de linha, todas visíveis), `Passos`, `Avatar`, `CabecalhoPagina` (com migalhas), `CopiarLink` | Navegação e identificação |
 | `AvisoDePrazos` (`src/web/layout/AlertasPrazos.tsx`) | Popup de prazos vencidos/hoje/amanhã do usuário (usa `Modal`, `SeloPrazo`); selo `.nav-contagem` no item Prazos do menu |
 | `SeletorBusca` | Escolher processo/cliente por busca (lista de resultados, trocar/remover) |
-| `Barras`, `Empilhada`, `Linha`, `Sparkline`, `Medidor` | Gráficos (abaixo) |
+| `Barras`, `BarrasAgrupadas`, `Empilhada`, `Linha`, `Sparkline`, `Medidor` | Gráficos (abaixo). `BarrasAgrupadas`: 2 a 3 séries lado a lado por categoria (ex.: recebido × pago por mês), legenda sempre, `formatar` para valores, rótulo só na maior barra, tooltip e tabela |
 
 ## Regras de gráficos (resumo do guia dataviz)
-- Escolha a forma pelo trabalho: um número = `Indicador`; razão contra limite = `Medidor`; comparar = `Barras`; parte do todo = `Empilhada` (preferida à pizza); tendência = `Linha`. Mais de ~7 classes: tabela.
+- Escolha a forma pelo trabalho: um número = `Indicador`; razão contra limite = `Medidor`; comparar = `Barras` (duas séries por categoria: `BarrasAgrupadas`); parte do todo = `Empilhada` (preferida à pizza); tendência = `Linha`. Mais de ~7 classes: tabela.
 - Uma série: sem legenda (o título diz). **Duas ou mais: legenda obrigatória.**
 - Barras nominais usam sempre a série 1. Categorias com ordem natural (planos Individual < Equipe < Sociedade) usam a rampa ordinal.
 - Cores de série em ordem fixa, nunca reordenadas nem recoloridas por filtro; máximo 8 (passou disso: agrupe em "Outros").

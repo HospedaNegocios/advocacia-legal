@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Env } from "../env";
 import type { Variaveis } from "../contexto";
-import { criarRepositorio } from "../db/repositorio";
+import { criarRepositorio, NIVEIS_PERMISSAO } from "../db/repositorio";
+import type { NivelPermissao } from "../db/repositorio";
 import type { LinhaUsuario } from "../db/repositorio";
 import { auditar } from "../auditoria";
 import { criarConvite } from "../convites";
@@ -154,4 +155,56 @@ rotasEquipe.get("/acessos", async (c) => {
     itens: itens.slice(0, POR_PAGINA),
     tem_proxima: itens.length > POR_PAGINA,
   });
+});
+
+// ---------- Permissões por usuário (módulo financeiro) ----------
+
+/** "nenhum" (sem acesso), "leitura" ou "edicao". */
+rotasEquipe.get("/permissoes", async (c) => {
+  const usuarios = await repoDaSessao(c).permissoes.listarUsuarios("financeiro");
+  return c.json({
+    ok: true,
+    usuarios: usuarios.map((u) => ({
+      id: u.id,
+      nome: u.nome,
+      email: u.email,
+      perfil: u.perfil,
+      convite_pendente: u.senha_definida === 0,
+      // Sócio tem acesso total e fixo; os demais seguem a tabela (sem linha = nenhum).
+      fixo: u.perfil === "socio",
+      financeiro: u.perfil === "socio" ? "edicao" : (u.nivel ?? "nenhum"),
+    })),
+  });
+});
+
+rotasEquipe.put("/:usuarioId/permissoes/financeiro", async (c) => {
+  const sessao = c.get("sessao");
+  const corpo = await lerJson(c);
+  const pedido = corpo.nivel;
+  if (pedido !== "nenhum" && !NIVEIS_PERMISSAO.includes(pedido as NivelPermissao)) {
+    return respostaErro(c, 400, 'Informe o acesso como "nenhum", "leitura" ou "edicao".');
+  }
+  const novo: NivelPermissao | null = pedido === "nenhum" ? null : (pedido as NivelPermissao);
+  const repo = repoDaSessao(c);
+  const alvo = await repo.users.buscar(c.req.param("usuarioId"));
+  if (!alvo || alvo.perfil === null) return respostaErro(c, 404, "Usuário não encontrado.");
+  if (alvo.perfil === "socio") return respostaErro(c, 409, "Sócios têm acesso total ao financeiro. Isso não pode ser alterado.");
+  if (alvo.ativo !== 1) return respostaErro(c, 409, "Este usuário está desativado. Reative-o antes de alterar o acesso.");
+  const antes = await repo.permissoes.obterNivel(alvo.id, "financeiro");
+  const r = await repo.permissoes.definir(alvo.id, "financeiro", novo, sessao.usuario.id);
+  if (r === "nao_encontrado") return respostaErro(c, 404, "Usuário não encontrado.");
+  if (r === "socio") return respostaErro(c, 409, "Sócios têm acesso total ao financeiro. Isso não pode ser alterado.");
+  if (r === "inativo") return respostaErro(c, 409, "Este usuário está desativado. Reative-o antes de alterar o acesso.");
+  if (antes !== novo) {
+    await auditar(c.env.DB, {
+      tenantId: sessao.tenantId,
+      userId: sessao.usuario.id,
+      acao: "permissao_alterada",
+      entidade: "permissoes_usuario",
+      entidadeId: alvo.id,
+      detalhes: { modulo: "financeiro", de: antes ?? "nenhum", para: novo ?? "nenhum" },
+      ip: ipDe(c),
+    });
+  }
+  return c.json({ ok: true, financeiro: novo ?? "nenhum" });
 });

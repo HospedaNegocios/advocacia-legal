@@ -49,6 +49,24 @@ export interface LinhaUsuario {
   atualizado_em: string;
 }
 
+export const MODULOS_PERMISSAO = ["financeiro"] as const;
+export type ModuloPermissao = (typeof MODULOS_PERMISSAO)[number];
+/** Ausência de linha no banco = "nenhum". Edição inclui leitura. */
+export const NIVEIS_PERMISSAO = ["leitura", "edicao"] as const;
+export type NivelPermissao = (typeof NIVEIS_PERMISSAO)[number];
+
+export interface UsuarioComPermissao {
+  id: string;
+  nome: string;
+  email: string;
+  perfil: Perfil;
+  senha_definida: number;
+  /** Nível gravado no módulo; null = sem acesso. (O sócio não tem linha: a regra de acesso total fica no código.) */
+  nivel: NivelPermissao | null;
+}
+
+export type ResultadoDefinirPermissao = "ok" | "nao_encontrado" | "socio" | "inativo";
+
 export interface LinhaSessao {
   id: string;
   user_id: string;
@@ -765,6 +783,18 @@ export interface Repositorio {
     /** Apaga o evento e seus participantes juntos. */
     excluirCompleto(id: string): Promise<boolean>;
   };
+  /** Permissões por usuário e módulo (hoje só o financeiro). Só usuários ativos do próprio escritório. */
+  permissoes: {
+    /** Usuários ativos do escritório com o nível de cada um no módulo (sem linha = null). */
+    listarUsuarios(modulo: ModuloPermissao): Promise<UsuarioComPermissao[]>;
+    /** Nível gravado do usuário (null = sem acesso, ou usuário inativo/de outro escritório). Não considera o perfil sócio. */
+    obterNivel(usuarioId: string, modulo: ModuloPermissao): Promise<NivelPermissao | null>;
+    /**
+     * Define o nível (null remove o acesso). Recusa o sócio, usuário inativo e usuário que não é deste escritório.
+     * `porUsuarioId` é o sócio que está alterando.
+     */
+    definir(usuarioId: string, modulo: ModuloPermissao, nivel: NivelPermissao | null, porUsuarioId: string): Promise<ResultadoDefinirPermissao>;
+  };
   /** E-mail diário de alerta de prazos (Fase 2). */
   alertas: {
     /** Usuários ativos, com senha definida, que são responsáveis por prazo não concluído com data fatal até `ate` (AAAA-MM-DD). */
@@ -1272,6 +1302,54 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
           .bind(status, status === "concluido" ? agoraIso : null, agoraIso, id, tid)
           .run();
         return r.meta.changes > 0;
+      },
+    },
+    permissoes: {
+      async listarUsuarios(modulo) {
+        const { results } = await db
+          .prepare(
+            `SELECT u.id, u.nome, u.email, u.perfil, u.senha_definida, p.nivel AS nivel
+             FROM users u
+             LEFT JOIN permissoes_usuario p ON p.usuario_id = u.id AND p.tenant_id = u.tenant_id AND p.modulo = ?
+             WHERE u.tenant_id = ? AND u.ativo = 1 AND u.perfil IS NOT NULL
+             ORDER BY u.nome COLLATE NOCASE, u.id`,
+          )
+          .bind(modulo, tid)
+          .all<UsuarioComPermissao>();
+        return results;
+      },
+      async obterNivel(usuarioId, modulo) {
+        const linha = await db
+          .prepare(
+            `SELECT p.nivel AS nivel FROM permissoes_usuario p
+             JOIN users u ON u.id = p.usuario_id AND u.tenant_id = p.tenant_id
+             WHERE p.tenant_id = ? AND p.usuario_id = ? AND p.modulo = ? AND u.ativo = 1`,
+          )
+          .bind(tid, usuarioId, modulo)
+          .first<{ nivel: NivelPermissao }>();
+        return linha?.nivel ?? null;
+      },
+      async definir(usuarioId, modulo, nivel, porUsuarioId) {
+        const alvo = await db
+          .prepare("SELECT perfil, ativo FROM users WHERE id = ? AND tenant_id = ? AND papel_plataforma IS NULL")
+          .bind(usuarioId, tid)
+          .first<{ perfil: Perfil | null; ativo: number }>();
+        if (!alvo || alvo.perfil === null) return "nao_encontrado";
+        if (alvo.perfil === "socio") return "socio";
+        if (alvo.ativo !== 1) return "inativo";
+        if (nivel === null) {
+          await db.prepare("DELETE FROM permissoes_usuario WHERE tenant_id = ? AND usuario_id = ? AND modulo = ?").bind(tid, usuarioId, modulo).run();
+          return "ok";
+        }
+        await db
+          .prepare(
+            `INSERT INTO permissoes_usuario (id, tenant_id, usuario_id, modulo, nivel, atualizado_por, atualizado_em)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT (tenant_id, usuario_id, modulo) DO UPDATE SET nivel = excluded.nivel, atualizado_por = excluded.atualizado_por, atualizado_em = excluded.atualizado_em`,
+          )
+          .bind(crypto.randomUUID(), tid, usuarioId, modulo, nivel, porUsuarioId, agora())
+          .run();
+        return "ok";
       },
     },
     alertas: {

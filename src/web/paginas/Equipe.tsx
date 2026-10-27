@@ -1,7 +1,7 @@
-import { CircleCheck, CircleX, Clock, LogIn, LogOut, Plus, ShieldAlert, ShieldCheck, UsersRound, MailQuestion, UserX } from "lucide-react";
+import { CircleCheck, CircleX, Clock, Lock, LogIn, LogOut, Plus, ShieldAlert, ShieldCheck, UsersRound, MailQuestion, UserX } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { ErroApi, ROTULO_PERFIL, api, formatarData } from "../api";
-import type { Perfil } from "../api";
+import { ErroApi, ROTULO_NIVEL_ACESSO, ROTULO_PERFIL, api, formatarData } from "../api";
+import type { NivelAcesso, Perfil } from "../api";
 import { useSessao } from "../sessao";
 import { Abas, Avatar, Botao, CabecalhoPagina, Cartao, CampoMarcar, Confirmar, CopiarLink, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Entrada, Formulario, Indicador, Medidor, Modal, Selecao, SelecaoCompacta, Selo, Tabela, useToast } from "../ui";
 import type { Coluna, TomSelo } from "../ui";
@@ -16,6 +16,17 @@ interface Membro {
   convite_pendente: boolean;
   totp_ativo: boolean;
 }
+interface MembroAcesso {
+  id: string;
+  nome: string;
+  email: string;
+  perfil: Perfil;
+  convite_pendente: boolean;
+  /** Sócio: acesso total, não pode ser alterado. */
+  fixo: boolean;
+  financeiro: NivelAcesso;
+}
+const NIVEIS: NivelAcesso[] = ["nenhum", "leitura", "edicao"];
 interface Acesso {
   id: string;
   acao: string;
@@ -48,6 +59,9 @@ export function Equipe() {
   const [link, setLink] = useState("");
   const [erroConvite, setErroConvite] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [permissoes, setPermissoes] = useState<MembroAcesso[] | null>(null);
+  const [erroPermissoes, setErroPermissoes] = useState("");
+  const [salvando, setSalvando] = useState<string | null>(null);
   const [desativando, setDesativando] = useState<Membro | null>(null);
 
   const carregar = useCallback(async () => {
@@ -71,10 +85,35 @@ export function Equipe() {
       setErroAcessos(e instanceof ErroApi ? e.message : "Algo deu errado.");
     }
   }, []);
+  const carregarPermissoes = useCallback(async () => {
+    try {
+      const r = await api<{ usuarios: MembroAcesso[] }>("GET", "/api/equipe/permissoes");
+      setPermissoes(r.usuarios);
+      setErroPermissoes("");
+    } catch (e) {
+      setErroPermissoes(e instanceof ErroApi ? e.message : "Algo deu errado.");
+    }
+  }, []);
   useEffect(() => {
     void carregar();
     void carregarAcessos(1);
-  }, [carregar, carregarAcessos]);
+    void carregarPermissoes();
+  }, [carregar, carregarAcessos, carregarPermissoes]);
+
+  /** Salva ao escolher. Em caso de erro, recarrega a lista para mostrar o que realmente está gravado. */
+  const mudarAcessoFinanceiro = async (m: MembroAcesso, nivel: NivelAcesso) => {
+    setSalvando(m.id);
+    try {
+      await api("PUT", `/api/equipe/${m.id}/permissoes/financeiro`, { nivel });
+      setPermissoes((atual) => (atual ?? []).map((x) => (x.id === m.id ? { ...x, financeiro: nivel } : x)));
+      avisar(`Acesso de ${m.nome} ao financeiro: ${ROTULO_NIVEL_ACESSO[nivel].toLowerCase()}.`);
+    } catch (e) {
+      avisar(e instanceof ErroApi ? e.message : "Algo deu errado.", "erro");
+      await carregarPermissoes();
+    } finally {
+      setSalvando(null);
+    }
+  };
 
   const executar = async (acao: () => Promise<void>, sucesso?: string) => {
     try {
@@ -240,6 +279,60 @@ export function Equipe() {
     </>
   );
 
+  const colunasPermissoes: Coluna<MembroAcesso>[] = [
+    {
+      chave: "nome",
+      titulo: "Nome",
+      principal: true,
+      render: (m) => (
+        <div className="celula-principal">
+          <Avatar nome={m.nome} />
+          <div>
+            <strong>{m.nome}</strong>
+            <small>{m.email}</small>
+          </div>
+        </div>
+      ),
+    },
+    { chave: "perfil", titulo: "Perfil", render: (m) => ROTULO_PERFIL[m.perfil] },
+    {
+      chave: "financeiro",
+      titulo: "Acesso ao financeiro",
+      render: (m) =>
+        m.fixo ? (
+          <Selo tom="info" icone={Lock}>
+            Acesso total
+          </Selo>
+        ) : (
+          <SelecaoCompacta
+            value={m.financeiro}
+            disabled={salvando === m.id}
+            aria-label={`Acesso de ${m.nome} ao financeiro`}
+            onChange={(ev) => void mudarAcessoFinanceiro(m, ev.target.value as NivelAcesso)}
+          >
+            {NIVEIS.map((n) => (
+              <option key={n} value={n}>
+                {ROTULO_NIVEL_ACESSO[n]}
+              </option>
+            ))}
+          </SelecaoCompacta>
+        ),
+    },
+  ];
+
+  const abaFinanceiro = erroPermissoes ? (
+    <EstadoErro acao={<Botao variante="secundario" onClick={() => void carregarPermissoes()}>Tentar de novo</Botao>}>{erroPermissoes}</EstadoErro>
+  ) : permissoes === null ? (
+    <EsqueletoLinhas linhas={4} />
+  ) : (
+    <>
+      <p className="texto-pequeno" style={{ margin: 0, padding: "var(--e-4) var(--e-5) 0" }}>
+        Escolha quem pode ver o financeiro e quem também pode alterar. Por padrão, ninguém além dos sócios tem acesso. A mudança vale na hora e fica registrada.
+      </p>
+      <Tabela colunas={colunasPermissoes} linhas={permissoes} chaveLinha={(m) => m.id} legenda="Acesso de cada pessoa ao financeiro" />
+    </>
+  );
+
   const abaSeguranca = (
     <div className="pilha" style={{ padding: "var(--e-5)" }}>
       <CampoMarcar checked={exigir2fa} onChange={(e) => void executar(async () => void (await api("PUT", "/api/equipe/configuracao", { exigir_2fa: e.target.checked })), e.target.checked ? "Verificação em duas etapas agora é obrigatória." : "Verificação em duas etapas deixou de ser obrigatória.")}>
@@ -289,6 +382,7 @@ export function Equipe() {
           <Abas
             abas={[
               { id: "membros", rotulo: "Membros", conteudo: <div style={{ margin: "0 calc(var(--e-4) * -1)" }}>{abaMembros}</div> },
+              { id: "financeiro", rotulo: "Acesso ao financeiro", conteudo: <div style={{ margin: "0 calc(var(--e-4) * -1)" }}>{abaFinanceiro}</div> },
               { id: "log", rotulo: "Log de acessos", conteudo: <div style={{ margin: "0 calc(var(--e-4) * -1)" }}>{abaLog}</div> },
               { id: "seguranca", rotulo: "Segurança", conteudo: <div style={{ margin: "0 calc(var(--e-4) * -1)" }}>{abaSeguranca}</div> },
             ]}

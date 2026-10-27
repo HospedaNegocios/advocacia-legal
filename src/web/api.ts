@@ -53,8 +53,17 @@ export type Status = "teste" | "ativo" | "suspenso" | "cancelado";
 export interface Eu {
   usuario: { id: string; nome: string; email: string; perfil: Perfil | null; dono_plataforma: boolean; totp_ativo: boolean };
   escritorio: { nome: string; status: Status; exigir_2fa: boolean } | null;
+  /** Nível do próprio usuário em cada módulo (sócio = "edicao"). Só adapta a tela; a API confere a cada requisição. */
+  permissoes: { financeiro: NivelAcesso };
   pendente_2fa: boolean;
 }
+
+export type NivelAcesso = "nenhum" | "leitura" | "edicao";
+export const ROTULO_NIVEL_ACESSO: Record<NivelAcesso, string> = {
+  nenhum: "Sem acesso",
+  leitura: "Só ler",
+  edicao: "Ler e editar",
+};
 
 export const ROTULO_PERFIL: Record<Perfil, string> = {
   socio: "Sócio",

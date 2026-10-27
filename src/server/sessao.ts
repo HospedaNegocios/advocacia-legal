@@ -3,7 +3,8 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { Env } from "./env";
 import type { Ctx, Variaveis } from "./contexto";
 import { criarAcessoAutenticacao } from "./db/repositorio";
-import type { UsuarioComEscritorio } from "./db/repositorio";
+import { criarRepositorio } from "./db/repositorio";
+import type { ModuloPermissao, NivelPermissao, UsuarioComEscritorio } from "./db/repositorio";
 import { FORMATO_TOKEN, gerarToken, sha256Hex } from "./auth/codificacao";
 import { respostaErro } from "./validacao";
 
@@ -109,6 +110,41 @@ export function exigirSessao(opcoes: OpcoesSessao = {}) {
       return respostaErro(c, 403, "Acesso negado.");
     }
     c.set("sessao", sessao);
+    await next();
+  });
+}
+
+export type NivelEfetivo = "nenhum" | NivelPermissao;
+
+/**
+ * Nível de acesso do usuário da sessão a um módulo. Lido do banco a cada chamada (nunca guardado na sessão),
+ * então uma mudança feita pelo sócio vale já na requisição seguinte. Sócio sempre tem "edicao".
+ */
+export async function nivelNoModulo(c: Ctx, modulo: ModuloPermissao): Promise<NivelEfetivo> {
+  const { usuario, tenantId } = c.get("sessao");
+  if (tenantId === null || usuario.tenant_id === null || usuario.papel_plataforma !== null) return "nenhum";
+  if (usuario.perfil === "socio") return "edicao";
+  return (await criarRepositorio(c.env.DB, tenantId).permissoes.obterNivel(usuario.id, modulo)) ?? "nenhum";
+}
+
+/**
+ * Exige acesso ao módulo no nível pedido ("edicao" inclui "leitura"). Vai DEPOIS de `exigirSessao`
+ * (sem sessão no contexto, recusa). Exemplo: `rotas.use("*", exigirSessao({ papel: "escritorio" }), exigirPermissao("financeiro", "leitura"))`.
+ */
+export function exigirPermissao(modulo: ModuloPermissao, minimo: NivelPermissao) {
+  return createMiddleware<{ Bindings: Env; Variables: Variaveis }>(async (c, next) => {
+    if (!c.get("sessao")) return respostaErro(c, 401, "Sessão ausente ou expirada. Entre novamente.");
+    const nivel = await nivelNoModulo(c, modulo);
+    const ok = nivel === "edicao" || (nivel === "leitura" && minimo === "leitura");
+    if (!ok) {
+      return respostaErro(
+        c,
+        403,
+        nivel === "leitura"
+          ? "Você pode apenas consultar esta área. Peça a um sócio para liberar a edição."
+          : "Você não tem acesso a esta área. Peça a um sócio para liberar.",
+      );
+    }
     await next();
   });
 }

@@ -1,23 +1,12 @@
 import { Hono } from "hono";
 import type { Env } from "../env";
 import type { Ctx, Variaveis } from "../contexto";
-import { CAMPOS_CLIENTE, criarRepositorio } from "../db/repositorio";
-import type { LinhaAnexo, LinhaCliente, LinhaConsentimento, LinhaContatoCliente, Repositorio } from "../db/repositorio";
-import { auditar } from "../auditoria";
-import { criarLinkAnexo, verificarLinkAnexo, VALIDADE_LINK_ANEXO_MS } from "../auth/cripto";
-import {
-  MIME_POR_TIPO,
-  TAMANHO_MAXIMO_ANEXO,
-  cabecalhoDownload,
-  detectarTipo,
-  extensaoCombina,
-  extensaoDe,
-  limparNomeArquivo,
-  montarChaveR2,
-} from "../anexos";
-import { exigirSessao, ipDe } from "../sessao";
+import { CAMPOS_CLIENTE } from "../db/repositorio";
+import type { LinhaCliente, LinhaConsentimento, LinhaContatoCliente, Repositorio } from "../db/repositorio";
+import { exigirSessao } from "../sessao";
 import { lerJson, respostaErro } from "../validacao";
 import { validarCliente, validarConsentimento, validarContato } from "../validacao-clientes";
+import { anexoDaEntidade, apagarAnexo, baixarAnexo, ehConflitoDeUnicidade, enviarAnexo, linkDoAnexo, listarAnexos, numeroPositivo, registrar, repoDaSessao } from "./comum";
 
 // Clientes do escritório. Todos os perfis criam e editam; só o sócio desativa/reativa e apaga anexos.
 // O escritório vem SEMPRE da sessão. Nenhuma rota aceita tenant_id.
@@ -28,14 +17,6 @@ const exigirSocio = exigirSessao({ papel: "socio" });
 
 const MSG_DOC_DUPLICADO = "Já existe um cliente com este CPF/CNPJ neste escritório.";
 const MSG_INATIVO = "Este cliente está desativado. Reative o cliente para alterar o cadastro.";
-
-function repoDaSessao(c: Ctx): Repositorio {
-  return criarRepositorio(c.env.DB, c.get("sessao").tenantId as string);
-}
-
-function ehConflitoDeUnicidade(e: unknown): boolean {
-  return e instanceof Error && /UNIQUE/i.test(e.message);
-}
 
 function clientePublico(l: LinhaCliente) {
   const saida: Record<string, string | number | boolean | null> = { id: l.id };
@@ -59,53 +40,9 @@ const consentimentoPublico = (l: LinhaConsentimento) => ({
   criado_em: l.criado_em,
 });
 
-const anexoPublico = (l: LinhaAnexo) => ({ id: l.id, nome: l.nome_original, tipo_mime: l.tipo_mime, tamanho_bytes: l.tamanho_bytes, enviado_por: l.enviado_por, criado_em: l.criado_em });
-
-async function registrar(c: Ctx, acao: string, entidade: string, entidadeId: string, detalhes?: Record<string, string | number | boolean | null>) {
-  const sessao = c.get("sessao");
-  await auditar(c.env.DB, {
-    tenantId: sessao.tenantId,
-    userId: sessao.usuario.id,
-    acao,
-    entidade,
-    entidadeId,
-    ...(detalhes ? { detalhes } : {}),
-    ip: ipDe(c),
-  });
-}
-
-function numeroPositivo(v: string | undefined, padrao: number, maximo: number): number {
-  const n = Number(v);
-  return Number.isInteger(n) && n >= 1 ? Math.min(n, maximo) : padrao;
-}
-
 // ---------- Download por link temporário (registrada antes de /:id) ----------
 
-rotasClientes.get("/anexos/:anexoId/arquivo", async (c) => {
-  const sessao = c.get("sessao");
-  const token = c.req.query("token") ?? "";
-  const anexoId = c.req.param("anexoId");
-  const tenantId = sessao.tenantId as string;
-  // Primeiro a assinatura (escritório da sessão + anexo + validade); depois a busca já filtrada pelo escritório.
-  if (!(await verificarLinkAnexo(token, tenantId, anexoId, c.env.CHAVE_CRIPTO))) {
-    return respostaErro(c, 403, "Link inválido ou expirado. Volte à tela do cliente e gere um novo.");
-  }
-  const repo = repoDaSessao(c);
-  const anexo = await repo.anexos.buscar(anexoId);
-  if (!anexo || !anexo.chave_r2.startsWith(`${tenantId}/`)) return respostaErro(c, 404, "Arquivo não encontrado.");
-  const objeto = await c.env.ARQUIVOS.get(anexo.chave_r2);
-  if (!objeto) return respostaErro(c, 404, "Arquivo não encontrado.");
-  await registrar(c, "anexo_baixado", "anexos", anexo.id, { entidade: anexo.entidade, entidade_id: anexo.entidade_id });
-  return new Response(objeto.body, {
-    headers: {
-      "Content-Type": anexo.tipo_mime,
-      "Content-Length": String(anexo.tamanho_bytes),
-      "Content-Disposition": cabecalhoDownload(anexo.nome_original),
-      "X-Content-Type-Options": "nosniff",
-      "Cache-Control": "private, no-store",
-    },
-  });
-});
+rotasClientes.get("/anexos/:anexoId/arquivo", (c) => baixarAnexo(c, "cliente"));
 
 // ---------- Lista, resumo e cadastro ----------
 
@@ -292,85 +229,44 @@ rotasClientes.get("/:id/anexos", async (c) => {
   const repo = repoDaSessao(c);
   const cli = await clienteOu404(c, repo);
   if (!cli) return respostaErro(c, 404, "Cliente não encontrado.");
-  const lista = await repo.anexos.listar({ entidade: "cliente", entidade_id: cli.id }, { limite: 200 });
-  return c.json({ ok: true, anexos: lista.map(anexoPublico), tamanho_maximo: TAMANHO_MAXIMO_ANEXO });
+  return listarAnexos(c, repo, "cliente", cli.id);
 });
 
-// Envio: corpo = bytes do arquivo; nome em X-Nome-Arquivo (codificado com encodeURIComponent).
 rotasClientes.post("/:id/anexos", async (c) => {
   const repo = repoDaSessao(c);
   const cli = await clienteOu404(c, repo);
   if (!cli) return respostaErro(c, 404, "Cliente não encontrado.");
   if (cli.ativo === 0) return respostaErro(c, 409, MSG_INATIVO);
-  const limiteMb = TAMANHO_MAXIMO_ANEXO / 1024 / 1024;
-  const msgTamanho = `O arquivo é maior que ${limiteMb} MB. Reduza o arquivo e tente de novo.`;
-  // Recusa pelo tamanho declarado antes de ler o corpo; depois confere o tamanho real.
-  const declarado = Number(c.req.header("Content-Length"));
-  if (!Number.isInteger(declarado) || declarado <= 0) return respostaErro(c, 400, "Envie o arquivo com o tamanho informado.");
-  if (declarado > TAMANHO_MAXIMO_ANEXO) return respostaErro(c, 413, msgTamanho);
-  let nome = "";
-  try {
-    nome = limparNomeArquivo(decodeURIComponent(c.req.header("X-Nome-Arquivo") ?? ""));
-  } catch {
-    nome = "";
-  }
-  if (!nome) return respostaErro(c, 400, "Informe o nome do arquivo.");
-  const bytes = new Uint8Array(await c.req.arrayBuffer());
-  if (bytes.length === 0) return respostaErro(c, 400, "O arquivo está vazio.");
-  if (bytes.length > TAMANHO_MAXIMO_ANEXO) return respostaErro(c, 413, msgTamanho);
-  const extensao = extensaoDe(nome);
-  const tipo = detectarTipo(bytes, extensao);
-  if (!tipo || !extensaoCombina(tipo, extensao)) {
-    return respostaErro(c, 400, "Tipo de arquivo não aceito. Envie PDF, imagem (JPEG, PNG ou WEBP), Word (.doc, .docx) ou Excel (.xls, .xlsx).");
-  }
-  const mime = MIME_POR_TIPO[tipo];
-  const chave = montarChaveR2(repo.tenantId, "cliente", cli.id);
-  await c.env.ARQUIVOS.put(chave, bytes, { httpMetadata: { contentType: mime } });
-  let id: string;
-  try {
-    id = await repo.anexos.inserir({
-      entidade: "cliente",
-      entidade_id: cli.id,
-      nome_original: nome,
-      tipo_mime: mime,
-      tamanho_bytes: bytes.length,
-      chave_r2: chave,
-      enviado_por: c.get("sessao").usuario.id,
-    });
-  } catch (e) {
-    await c.env.ARQUIVOS.delete(chave);
-    throw e;
-  }
-  await registrar(c, "anexo_enviado", "anexos", id, { entidade: "cliente", entidade_id: cli.id, tamanho_bytes: bytes.length, tipo });
-  const novo = await repo.anexos.buscar(id);
-  return c.json({ ok: true, anexo: novo ? anexoPublico(novo) : null }, 201);
+  return enviarAnexo(c, repo, "cliente", cli.id);
 });
 
-async function anexoDoCliente(c: Ctx, repo: Repositorio, cli: LinhaCliente) {
-  const a = await repo.anexos.buscar(c.req.param("anexoId") ?? "");
-  return a && a.entidade === "cliente" && a.entidade_id === cli.id ? a : null;
-}
-
-// Gera o link temporário (5 minutos). O navegador abre o link, que confere sessão, escritório e assinatura.
 rotasClientes.get("/:id/anexos/:anexoId/link", async (c) => {
   const repo = repoDaSessao(c);
   const cli = await clienteOu404(c, repo);
   if (!cli) return respostaErro(c, 404, "Cliente não encontrado.");
-  const a = await anexoDoCliente(c, repo, cli);
+  const a = await anexoDaEntidade(c, repo, "cliente", cli.id);
   if (!a) return respostaErro(c, 404, "Arquivo não encontrado.");
-  const token = await criarLinkAnexo(repo.tenantId, a.id, c.env.CHAVE_CRIPTO);
-  return c.json({ ok: true, url: `/api/clientes/anexos/${a.id}/arquivo?token=${token}`, validade_segundos: VALIDADE_LINK_ANEXO_MS / 1000 });
+  return linkDoAnexo(c, repo, a, "/api/clientes");
 });
 
 rotasClientes.delete("/:id/anexos/:anexoId", exigirSocio, async (c) => {
   const repo = repoDaSessao(c);
   const cli = await clienteOu404(c, repo);
   if (!cli) return respostaErro(c, 404, "Cliente não encontrado.");
-  const a = await anexoDoCliente(c, repo, cli);
+  const a = await anexoDaEntidade(c, repo, "cliente", cli.id);
   if (!a) return respostaErro(c, 404, "Arquivo não encontrado.");
-  await repo.anexos.excluir(a.id);
-  // Se a remoção no R2 falhar, o registro já saiu do sistema e o arquivo fica inacessível (sem link possível).
-  await c.env.ARQUIVOS.delete(a.chave_r2);
-  await registrar(c, "anexo_excluido", "anexos", a.id, { entidade: "cliente", entidade_id: cli.id });
-  return c.json({ ok: true });
+  return apagarAnexo(c, repo, a, "cliente", cli.id);
+});
+
+// ---------- Processos do cliente (somente leitura; a gestão fica em /api/processos) ----------
+
+rotasClientes.get("/:id/processos", async (c) => {
+  const repo = repoDaSessao(c);
+  const cli = await clienteOu404(c, repo);
+  if (!cli) return respostaErro(c, 404, "Cliente não encontrado.");
+  const lista = await repo.processos.doCliente(cli.id, 100);
+  return c.json({
+    ok: true,
+    processos: lista.map((p) => ({ id: p.id, numero_cnj: p.numero_cnj, fase: p.fase, polo: p.polo, tribunal: p.tribunal, orgao: p.orgao, comarca: p.comarca, ativo: p.ativo === 1 })),
+  });
 });

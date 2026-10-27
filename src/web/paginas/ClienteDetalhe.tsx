@@ -1,22 +1,17 @@
-import { Ban, CircleCheck, CirclePause, Download, FileText, Pencil, Plus, RotateCcw, ShieldCheck, ShieldOff, Trash2, Upload, UserRound } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ErroApi, api, enviarArquivo, formatarData } from "../api";
+import { Ban, Briefcase, CircleCheck, CirclePause, Pencil, Plus, RotateCcw, ShieldCheck, ShieldOff, Trash2, UserRound } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ErroApi, api, formatarData } from "../api";
 import { mascaraTelefone } from "../mascaras";
 import { Link } from "../roteador";
 import { useSessao } from "../sessao";
 import { Abas, AreaTexto, Aviso, Botao, CabecalhoPagina, Cartao, Confirmar, Entrada, EsqueletoLinhas, EstadoErro, EstadoVazio, Formulario, Modal, Selo, useToast } from "../ui";
 import { ClienteFormulario } from "./ClienteFormulario";
-import { ROTULO_TIPO, cepFormatado, diaBr, documentoFormatado, hojeIso, tamanhoLegivel, telefoneFormatado } from "./clientes-comum";
-import type { Anexo, Cliente, Consentimento, Contato } from "./clientes-comum";
-
-function Dado({ rotulo, valor }: { rotulo: string; valor: string | null | undefined }) {
-  return (
-    <div>
-      <dt>{rotulo}</dt>
-      <dd>{valor && valor.trim() !== "" ? valor : "—"}</dd>
-    </div>
-  );
-}
+import { AbaDocumentos, Dado } from "./abas-comuns";
+import { ROTULO_TIPO, cepFormatado, diaBr, documentoFormatado, hojeIso, telefoneFormatado } from "./clientes-comum";
+import type { Cliente, Consentimento, Contato } from "./clientes-comum";
+import { SeloFase } from "./ProcessoFase";
+import { cnjFormatado, ROTULO_POLO } from "./processos-comum";
+import type { Fase, Polo } from "./processos-comum";
 
 function AbaDados({ c, aoEditar }: { c: Cliente; aoEditar: () => void }) {
   const pf = c.tipo === "pf";
@@ -184,125 +179,6 @@ function AbaContatos({ c }: { c: Cliente }) {
   );
 }
 
-function AbaDocumentos({ c, ehSocio }: { c: Cliente; ehSocio: boolean }) {
-  const { avisar } = useToast();
-  const [lista, setLista] = useState<Anexo[] | null>(null);
-  const [maximo, setMaximo] = useState(7 * 1024 * 1024);
-  const [erroCarga, setErroCarga] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const [apagando, setApagando] = useState<Anexo | null>(null);
-  const entrada = useRef<HTMLInputElement>(null);
-
-  const carregar = useCallback(async () => {
-    try {
-      const r = await api<{ anexos: Anexo[]; tamanho_maximo: number }>("GET", `/api/clientes/${c.id}/anexos`);
-      setLista(r.anexos);
-      setMaximo(r.tamanho_maximo);
-      setErroCarga("");
-    } catch (e) {
-      setErroCarga(e instanceof ErroApi ? e.message : "Algo deu errado.");
-    }
-  }, [c.id]);
-  useEffect(() => void carregar(), [carregar]);
-
-  const enviar = async (arquivo: File | undefined) => {
-    if (!arquivo) return;
-    if (arquivo.size > maximo) {
-      avisar(`O arquivo é maior que ${maximo / 1024 / 1024} MB. Reduza o arquivo e tente de novo.`, "erro");
-      return;
-    }
-    setEnviando(true);
-    try {
-      await enviarArquivo(`/api/clientes/${c.id}/anexos`, arquivo);
-      avisar("Documento enviado.");
-      await carregar();
-    } catch (e) {
-      avisar(e instanceof ErroApi ? e.message : "Algo deu errado.", "erro");
-    } finally {
-      setEnviando(false);
-      if (entrada.current) entrada.current.value = "";
-    }
-  };
-
-  const baixar = async (a: Anexo) => {
-    try {
-      // O link vale 5 minutos; o navegador baixa o arquivo sem sair da tela.
-      const r = await api<{ url: string }>("GET", `/api/clientes/${c.id}/anexos/${a.id}/link`);
-      window.location.assign(r.url);
-    } catch (e) {
-      avisar(e instanceof ErroApi ? e.message : "Algo deu errado.", "erro");
-    }
-  };
-
-  const apagar = async (a: Anexo) => {
-    setApagando(null);
-    try {
-      await api("DELETE", `/api/clientes/${c.id}/anexos/${a.id}`);
-      avisar("Documento apagado.");
-    } catch (e) {
-      avisar(e instanceof ErroApi ? e.message : "Algo deu errado.", "erro");
-    }
-    await carregar();
-  };
-
-  if (erroCarga) return <EstadoErro acao={<Botao variante="secundario" onClick={() => void carregar()}>Tentar de novo</Botao>}>{erroCarga}</EstadoErro>;
-  if (lista === null) return <EsqueletoLinhas linhas={3} />;
-
-  const botaoEnviar = c.ativo ? (
-    <>
-      <input ref={entrada} className="so-leitor-input" type="file" id="arquivo-cliente" tabIndex={-1} accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" onChange={(e) => void enviar(e.target.files?.[0])} />
-      <Botao carregando={enviando} onClick={() => entrada.current?.click()}>
-        <Upload size={18} aria-hidden="true" />
-        Enviar documento
-      </Botao>
-    </>
-  ) : null;
-
-  return (
-    <div className="pilha">
-      <div className="abas-acao">
-        <p className="texto-pequeno" style={{ margin: 0 }}>
-          PDF, imagem (JPEG, PNG, WEBP), Word ou Excel, de até {maximo / 1024 / 1024} MB cada.
-        </p>
-        {lista.length > 0 && botaoEnviar}
-      </div>
-      {lista.length === 0 ? (
-        <EstadoVazio icone={FileText} titulo="Nenhum documento enviado" {...(botaoEnviar ? { acao: botaoEnviar } : {})}>
-          Guarde aqui procuração, documentos pessoais e contratos deste cliente.
-        </EstadoVazio>
-      ) : (
-        <ul className="lista-simples" aria-label="Documentos do cliente">
-          {lista.map((a) => (
-            <li key={a.id} className="item-lista">
-              <div className="item-lista-texto">
-                <strong>{a.nome}</strong>
-                <small>
-                  {tamanhoLegivel(a.tamanho_bytes)} · enviado em {formatarData(a.criado_em)}
-                </small>
-              </div>
-              <div className="tabela-acoes">
-                <Botao tamanho="pequeno" variante="secundario" onClick={() => void baixar(a)} aria-label={`Baixar ${a.nome}`}>
-                  <Download size={16} aria-hidden="true" />
-                  Baixar
-                </Botao>
-                {ehSocio && (
-                  <Botao tamanho="pequeno" variante="perigo" onClick={() => setApagando(a)} aria-label={`Apagar ${a.nome}`}>
-                    <Trash2 size={16} aria-hidden="true" />
-                    Apagar
-                  </Botao>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      <Confirmar aberto={apagando !== null} aoFechar={() => setApagando(null)} titulo="Apagar documento" rotuloConfirmar="Apagar" perigo aoConfirmar={() => apagando && void apagar(apagando)}>
-        Apagar {apagando?.nome}? O arquivo é removido de vez e essa ação não pode ser desfeita.
-      </Confirmar>
-    </div>
-  );
-}
-
 function AbaLgpd({ c }: { c: Cliente }) {
   const { avisar } = useToast();
   const [lista, setLista] = useState<Consentimento[] | null>(null);
@@ -436,6 +312,73 @@ function AbaLgpd({ c }: { c: Cliente }) {
   );
 }
 
+interface ProcessoDoCliente {
+  id: string;
+  numero_cnj: string;
+  fase: Fase;
+  polo: Polo;
+  tribunal: string | null;
+  orgao: string | null;
+  comarca: string | null;
+  ativo: boolean;
+}
+
+function AbaProcessos({ c }: { c: Cliente }) {
+  const [lista, setLista] = useState<ProcessoDoCliente[] | null>(null);
+  const [erroCarga, setErroCarga] = useState("");
+
+  const carregar = useCallback(async () => {
+    try {
+      const r = await api<{ processos: ProcessoDoCliente[] }>("GET", `/api/clientes/${c.id}/processos`);
+      setLista(r.processos);
+      setErroCarga("");
+    } catch (e) {
+      setErroCarga(e instanceof ErroApi ? e.message : "Algo deu errado.");
+    }
+  }, [c.id]);
+  useEffect(() => void carregar(), [carregar]);
+
+  if (erroCarga) return <EstadoErro acao={<Botao variante="secundario" onClick={() => void carregar()}>Tentar de novo</Botao>}>{erroCarga}</EstadoErro>;
+  if (lista === null) return <EsqueletoLinhas linhas={3} />;
+
+  return (
+    <div className="pilha">
+      <div className="abas-acao">
+        <p className="texto-pequeno" style={{ margin: 0 }}>
+          Processos em que este cliente é parte. Para vincular, abra o processo e adicione o cliente na aba Partes.
+        </p>
+        {lista.length > 0 && (
+          <Link para="/processos" className="btn btn-secundario">
+            Ver todos os processos
+          </Link>
+        )}
+      </div>
+      {lista.length === 0 ? (
+        <EstadoVazio icone={Briefcase} titulo="Nenhum processo vinculado" acao={<Link para="/processos" className="btn btn-secundario">Ir para os processos</Link>}>
+          Quando este cliente for adicionado como parte de um processo, ele aparece aqui.
+        </EstadoVazio>
+      ) : (
+        <ul className="lista-simples" aria-label="Processos do cliente">
+          {lista.map((p) => (
+            <li key={p.id} className="item-lista">
+              <div className="item-lista-texto">
+                <Link para={`/processos/${p.id}`}>
+                  <strong className="numero-cnj">{cnjFormatado(p.numero_cnj)}</strong>
+                </Link>
+                <small>{[ROTULO_POLO[p.polo], [p.tribunal, p.comarca, p.orgao].filter(Boolean).join(" · ")].filter(Boolean).join(" · ")}</small>
+              </div>
+              <div className="tabela-acoes">
+                <SeloFase fase={p.fase} />
+                {!p.ativo && <Selo icone={CirclePause}>Desativado</Selo>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function ClienteDetalhe({ id }: { id: string }) {
   const { avisar } = useToast();
   const { eu } = useSessao();
@@ -524,8 +467,9 @@ export function ClienteDetalhe({ id }: { id: string }) {
           abas={[
             { id: "dados", rotulo: "Dados", conteudo: <AbaDados c={c} aoEditar={() => setEditando(true)} /> },
             { id: "contatos", rotulo: "Contatos", conteudo: <AbaContatos c={c} /> },
-            { id: "documentos", rotulo: "Documentos", conteudo: <AbaDocumentos c={c} ehSocio={ehSocio} /> },
+            { id: "documentos", rotulo: "Documentos", conteudo: <AbaDocumentos base={`/api/clientes/${c.id}`} editavel={c.ativo} ehSocio={ehSocio} texto={{ vazio: "Guarde aqui procuração, documentos pessoais e contratos deste cliente.", lista: "Documentos do cliente" }} /> },
             { id: "lgpd", rotulo: "LGPD", conteudo: <AbaLgpd c={c} /> },
+            { id: "processos", rotulo: "Processos", conteudo: <AbaProcessos c={c} /> },
           ]}
         />
       </Cartao>

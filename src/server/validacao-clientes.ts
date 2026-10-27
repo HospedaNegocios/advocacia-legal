@@ -4,7 +4,7 @@ import type { Opcional } from "./validacao";
 
 export type ResultadoCliente = { ok: true; dados: DadosCliente } | { ok: false; erro: string };
 
-function dataValida(texto: string): boolean {
+export function dataValida(texto: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
   const [a, m, d] = texto.split("-").map(Number) as [number, number, number];
   const dt = new Date(Date.UTC(a, m - 1, d));

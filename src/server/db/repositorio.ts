@@ -192,6 +192,114 @@ export interface LinhaConsentimento {
   criado_em: string;
 }
 
+
+export const FASES_PROCESSO = ["Conhecimento", "Recursal", "Execução", "Suspenso", "Arquivado"] as const;
+export type FaseProcesso = (typeof FASES_PROCESSO)[number];
+export const POLOS = ["ativo", "passivo", "terceiro"] as const;
+export type Polo = (typeof POLOS)[number];
+
+export interface LinhaProcesso {
+  id: string;
+  tenant_id: string;
+  numero_cnj: string;
+  tribunal: string | null;
+  orgao: string | null;
+  comarca: string | null;
+  area: string | null;
+  classe: string | null;
+  assunto: string | null;
+  fase: FaseProcesso;
+  valor_causa_centavos: number | null;
+  data_distribuicao: string | null;
+  observacoes: string | null;
+  ativo: number;
+  criado_por: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Campos do processo que o escritório grava (o resto é controlado pela camada). */
+export const CAMPOS_PROCESSO = [
+  "numero_cnj", "tribunal", "orgao", "comarca", "area", "classe", "assunto", "fase", "valor_causa_centavos", "data_distribuicao", "observacoes",
+] as const;
+export interface DadosProcesso {
+  numero_cnj: string;
+  tribunal: string | null;
+  orgao: string | null;
+  comarca: string | null;
+  area: string | null;
+  classe: string | null;
+  assunto: string | null;
+  fase: FaseProcesso;
+  valor_causa_centavos: number | null;
+  data_distribuicao: string | null;
+  observacoes: string | null;
+}
+
+export interface LinhaParteProcesso {
+  id: string;
+  tenant_id: string;
+  processo_id: string;
+  cliente_id: string | null;
+  nome: string | null;
+  nome_busca: string | null;
+  polo: Polo;
+  cliente_escritorio: number;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface LinhaResponsavelProcesso {
+  id: string;
+  tenant_id: string;
+  processo_id: string;
+  user_id: string;
+  criado_em: string;
+}
+
+export interface LinhaAndamento {
+  id: string;
+  tenant_id: string;
+  processo_id: string;
+  data: string;
+  descricao: string;
+  registrado_por: string | null;
+  criado_em: string;
+}
+
+/** Parte com o nome já resolvido (nome do cliente cadastrado ou nome livre). */
+export interface ParteDetalhada extends LinhaParteProcesso {
+  nome_exibicao: string;
+}
+
+export interface ResponsavelDetalhado extends LinhaResponsavelProcesso {
+  nome: string;
+  ativo: number;
+}
+
+export interface FiltroProcessos {
+  /** Texto digitado na busca (número CNJ com ou sem máscara, ou nome de parte). */
+  busca?: string;
+  fase?: FaseProcesso;
+  ativo?: boolean;
+  /** Id de um usuário responsável, ou "sem" para processos sem responsável. */
+  responsavel?: string;
+  cliente_id?: string;
+  limite?: number;
+  deslocamento?: number;
+}
+
+export interface ResumoProcessos {
+  total_ativos: number;
+  por_fase: Record<FaseProcesso, number>;
+  sem_responsavel: number;
+  andamentos_30_dias: number;
+}
+
+export interface ProcessoDoCliente extends LinhaProcesso {
+  polo: Polo;
+}
+
 export interface FiltroClientes {
   /** Texto digitado na busca (nome, nome fantasia ou documento). */
   busca?: string;
@@ -236,6 +344,10 @@ interface LinhasPorTabela {
   clientes_contatos: LinhaContatoCliente;
   anexos: LinhaAnexo;
   consentimentos_lgpd: LinhaConsentimento;
+  processos: LinhaProcesso;
+  processos_partes: LinhaParteProcesso;
+  processos_responsaveis: LinhaResponsavelProcesso;
+  processos_andamentos: LinhaAndamento;
 }
 export type TabelaDoEscritorio = keyof LinhasPorTabela;
 
@@ -313,6 +425,31 @@ const TABELAS: Readonly<Record<TabelaDoEscritorio, ConfigTabela>> = {
     temAtualizadoEm: false,
     imutavel: false,
   },
+  processos: {
+    inserivel: ["id", "ativo", "criado_por", "criado_em", "atualizado_em", ...CAMPOS_PROCESSO],
+    atualizavel: ["ativo", ...CAMPOS_PROCESSO],
+    temAtualizadoEm: true,
+    imutavel: false,
+  },
+  processos_partes: {
+    inserivel: ["id", "processo_id", "cliente_id", "nome", "nome_busca", "polo", "cliente_escritorio", "criado_em", "atualizado_em"],
+    atualizavel: ["nome", "nome_busca", "polo", "cliente_escritorio"],
+    temAtualizadoEm: true,
+    imutavel: false,
+  },
+  processos_responsaveis: {
+    inserivel: ["id", "processo_id", "user_id", "criado_em"],
+    atualizavel: [],
+    temAtualizadoEm: false,
+    imutavel: false,
+  },
+  processos_andamentos: {
+    // Andamento nunca é editado depois de salvo (só apagado pelo sócio, na rota).
+    inserivel: ["id", "processo_id", "data", "descricao", "registrado_por", "criado_em"],
+    atualizavel: [],
+    temAtualizadoEm: false,
+    imutavel: false,
+  },
 };
 
 // Colunas aceitas em filtros de leitura (além de tenant_id, que é sempre aplicado).
@@ -326,6 +463,10 @@ const COLUNAS_FILTRO: Readonly<Record<TabelaDoEscritorio, readonly string[]>> = 
   clientes_contatos: ["id", "cliente_id"],
   anexos: ["id", "entidade", "entidade_id", "enviado_por"],
   consentimentos_lgpd: ["id", "cliente_id"],
+  processos: ["id", "ativo", "fase", "numero_cnj"],
+  processos_partes: ["id", "processo_id", "cliente_id"],
+  processos_responsaveis: ["id", "processo_id", "user_id"],
+  processos_andamentos: ["id", "processo_id"],
 };
 
 const LIMITE_PADRAO = 50;
@@ -431,6 +572,24 @@ export interface Repositorio {
   /** Metadados dos anexos. O arquivo em si fica no R2 (ver src/server/anexos.ts). */
   anexos: RepositorioTabela<LinhaAnexo>;
   consentimentos: RepositorioTabela<LinhaConsentimento>;
+  /** Processos. Partes, responsáveis e andamentos ficam em tabelas próprias, sempre filtradas pelo escritório. */
+  processos: RepositorioTabela<LinhaProcesso> & {
+    pesquisar(filtro?: FiltroProcessos): Promise<{ itens: LinhaProcesso[]; total: number }>;
+    resumo(): Promise<ResumoProcessos>;
+    /** Processos em que o cliente é parte (com o polo dele), ativos primeiro. */
+    doCliente(clienteId: string, limite?: number): Promise<ProcessoDoCliente[]>;
+  };
+  /** `nome_busca` é calculado aqui a partir do nome livre. */
+  processoPartes: RepositorioTabela<LinhaParteProcesso> & {
+    detalhadas(processoIds: string[]): Promise<ParteDetalhada[]>;
+  };
+  processoResponsaveis: RepositorioTabela<LinhaResponsavelProcesso> & {
+    detalhados(processoIds: string[]): Promise<ResponsavelDetalhado[]>;
+  };
+  andamentos: RepositorioTabela<LinhaAndamento> & {
+    /** Mais recentes primeiro (data e depois ordem de registro). */
+    doProcesso(processoId: string, opcoes?: { limite?: number; deslocamento?: number }): Promise<{ itens: LinhaAndamento[]; total: number }>;
+  };
   /** Auditoria: só leitura e registro (sem alterar/excluir). */
   auditoria: {
     registrar(entrada: EntradaAuditoria): Promise<string>;
@@ -554,6 +713,10 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
   const auditoriaBase = montarTabela(db, tid, "audit_log");
   const oabsBase = montarTabela(db, tid, "oabs");
   const clientesBase = montarTabela(db, tid, "clientes");
+  const processosBase = montarTabela(db, tid, "processos");
+  const partesBase = montarTabela(db, tid, "processos_partes");
+  const responsaveisBase = montarTabela(db, tid, "processos_responsaveis");
+  const andamentosBase = montarTabela(db, tid, "processos_andamentos");
 
   return {
     tenantId: tid,
@@ -690,6 +853,151 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
     contatos: montarTabela(db, tid, "clientes_contatos"),
     anexos: montarTabela(db, tid, "anexos"),
     consentimentos: montarTabela(db, tid, "consentimentos_lgpd"),
+    processos: {
+      ...processosBase,
+      async pesquisar(filtro = {}) {
+        const condicoes = ["p.tenant_id = ?"];
+        const params: Valor[] = [tid];
+        if (filtro.fase) {
+          condicoes.push("p.fase = ?");
+          params.push(filtro.fase);
+        }
+        if (filtro.ativo !== undefined) {
+          condicoes.push("p.ativo = ?");
+          params.push(filtro.ativo ? 1 : 0);
+        }
+        if (filtro.responsavel === "sem") {
+          condicoes.push("NOT EXISTS (SELECT 1 FROM processos_responsaveis r WHERE r.processo_id = p.id AND r.tenant_id = p.tenant_id)");
+        } else if (filtro.responsavel) {
+          condicoes.push("EXISTS (SELECT 1 FROM processos_responsaveis r WHERE r.processo_id = p.id AND r.tenant_id = p.tenant_id AND r.user_id = ?)");
+          params.push(filtro.responsavel);
+        }
+        if (filtro.cliente_id) {
+          condicoes.push("EXISTS (SELECT 1 FROM processos_partes x WHERE x.processo_id = p.id AND x.tenant_id = p.tenant_id AND x.cliente_id = ?)");
+          params.push(filtro.cliente_id);
+        }
+        const busca = (filtro.busca ?? "").trim().slice(0, 100);
+        if (busca) {
+          const escapar = (t: string) => t.replace(/[\\%_]/g, (c) => `\\${c}`);
+          const alternativas = [
+            `EXISTS (SELECT 1 FROM processos_partes x LEFT JOIN clientes c ON c.id = x.cliente_id AND c.tenant_id = x.tenant_id
+                     WHERE x.processo_id = p.id AND x.tenant_id = p.tenant_id AND (x.nome_busca LIKE ? ESCAPE '\\' OR c.nome_busca LIKE ? ESCAPE '\\'))`,
+          ];
+          const nomeBusca = `%${escapar(normalizarBusca(busca))}%`;
+          params.push(nomeBusca, nomeBusca);
+          const digitos = busca.replace(/\D/g, "");
+          if (digitos.length >= 3 && /^[\d.\-/\s]+$/.test(busca)) {
+            alternativas.push("p.numero_cnj LIKE ?");
+            params.push(`%${digitos}%`);
+          }
+          condicoes.push(`(${alternativas.join(" OR ")})`);
+        }
+        const onde = condicoes.join(" AND ");
+        const limite = Math.min(Math.max(Math.trunc(filtro.limite ?? 20), 1), 100);
+        const deslocamento = Math.max(Math.trunc(filtro.deslocamento ?? 0), 0);
+        const [lista, total] = await Promise.all([
+          db
+            .prepare(`SELECT p.* FROM processos p WHERE ${onde} ORDER BY p.criado_em DESC, p.id LIMIT ? OFFSET ?`)
+            .bind(...params, limite, deslocamento)
+            .all<LinhaProcesso>(),
+          db.prepare(`SELECT COUNT(*) AS n FROM processos p WHERE ${onde}`).bind(...params).first<{ n: number }>(),
+        ]);
+        return { itens: lista.results, total: total?.n ?? 0 };
+      },
+      async resumo() {
+        const corte = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+        const [fases, sem, andamentos] = await Promise.all([
+          db.prepare("SELECT fase, COUNT(*) AS n FROM processos WHERE tenant_id = ? AND ativo = 1 GROUP BY fase").bind(tid).all<{ fase: FaseProcesso; n: number }>(),
+          db
+            .prepare(
+              `SELECT COUNT(*) AS n FROM processos p WHERE p.tenant_id = ? AND p.ativo = 1
+               AND NOT EXISTS (SELECT 1 FROM processos_responsaveis r WHERE r.processo_id = p.id AND r.tenant_id = p.tenant_id)`,
+            )
+            .bind(tid)
+            .first<{ n: number }>(),
+          db
+            .prepare(
+              `SELECT COUNT(*) AS n FROM processos_andamentos a JOIN processos p ON p.id = a.processo_id AND p.tenant_id = a.tenant_id
+               WHERE a.tenant_id = ? AND p.ativo = 1 AND a.data >= ?`,
+            )
+            .bind(tid, corte)
+            .first<{ n: number }>(),
+        ]);
+        const por_fase = Object.fromEntries(FASES_PROCESSO.map((f) => [f, 0])) as Record<FaseProcesso, number>;
+        for (const l of fases.results) por_fase[l.fase] = l.n;
+        return {
+          total_ativos: FASES_PROCESSO.reduce((s, f) => s + por_fase[f], 0),
+          por_fase,
+          sem_responsavel: sem?.n ?? 0,
+          andamentos_30_dias: andamentos?.n ?? 0,
+        };
+      },
+      async doCliente(clienteId, limite = 100) {
+        const { results } = await db
+          .prepare(
+            `SELECT p.*, x.polo AS polo FROM processos p JOIN processos_partes x ON x.processo_id = p.id AND x.tenant_id = p.tenant_id
+             WHERE p.tenant_id = ? AND x.cliente_id = ? ORDER BY p.ativo DESC, p.criado_em DESC, p.id LIMIT ?`,
+          )
+          .bind(tid, clienteId, Math.min(Math.max(Math.trunc(limite), 1), LIMITE_MAXIMO))
+          .all<ProcessoDoCliente>();
+        return results;
+      },
+    },
+    processoPartes: {
+      ...partesBase,
+      async inserir(dados) {
+        const d = dados as Partial<LinhaParteProcesso>;
+        return partesBase.inserir({ ...dados, nome_busca: d.nome ? normalizarBusca(d.nome) : null });
+      },
+      async atualizar(id, dados) {
+        const d = dados as Partial<LinhaParteProcesso>;
+        return partesBase.atualizar(id, d.nome === undefined ? dados : { ...dados, nome_busca: d.nome ? normalizarBusca(d.nome) : null });
+      },
+      async detalhadas(processoIds) {
+        if (processoIds.length === 0) return [];
+        const { results } = await db
+          .prepare(
+            `SELECT x.*, COALESCE(c.nome, x.nome) AS nome_exibicao FROM processos_partes x
+             LEFT JOIN clientes c ON c.id = x.cliente_id AND c.tenant_id = x.tenant_id
+             WHERE x.tenant_id = ? AND x.processo_id IN (${processoIds.map(() => "?").join(", ")})
+             ORDER BY x.criado_em, x.id`,
+          )
+          .bind(tid, ...processoIds)
+          .all<ParteDetalhada>();
+        return results;
+      },
+    },
+    processoResponsaveis: {
+      ...responsaveisBase,
+      async detalhados(processoIds) {
+        if (processoIds.length === 0) return [];
+        const { results } = await db
+          .prepare(
+            `SELECT r.*, u.nome AS nome, u.ativo AS ativo FROM processos_responsaveis r
+             JOIN users u ON u.id = r.user_id AND u.tenant_id = r.tenant_id
+             WHERE r.tenant_id = ? AND r.processo_id IN (${processoIds.map(() => "?").join(", ")})
+             ORDER BY r.criado_em, r.id`,
+          )
+          .bind(tid, ...processoIds)
+          .all<ResponsavelDetalhado>();
+        return results;
+      },
+    },
+    andamentos: {
+      ...andamentosBase,
+      async doProcesso(processoId, opcoes = {}) {
+        const limite = Math.min(Math.max(Math.trunc(opcoes.limite ?? LIMITE_PADRAO), 1), LIMITE_MAXIMO);
+        const deslocamento = Math.max(Math.trunc(opcoes.deslocamento ?? 0), 0);
+        const [lista, total] = await Promise.all([
+          db
+            .prepare("SELECT * FROM processos_andamentos WHERE tenant_id = ? AND processo_id = ? ORDER BY data DESC, criado_em DESC, id DESC LIMIT ? OFFSET ?")
+            .bind(tid, processoId, limite, deslocamento)
+            .all<LinhaAndamento>(),
+          db.prepare("SELECT COUNT(*) AS n FROM processos_andamentos WHERE tenant_id = ? AND processo_id = ?").bind(tid, processoId).first<{ n: number }>(),
+        ]);
+        return { itens: lista.results, total: total?.n ?? 0 };
+      },
+    },
     auditoria: {
       registrar: (e) =>
         auditoriaBase.inserir({

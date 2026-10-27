@@ -50,7 +50,7 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | `EstadoVazio`, `EstadoErro`, `Esqueleto*` | Vazio, erro com "tentar de novo", carregando |
 | `Aviso`, `useToast` | Aviso em linha; notificação temporária |
 | `Modal`, `Confirmar` | Diálogo com foco preso, Esc fecha, devolve o foco |
-| `Abas`, `Passos`, `Avatar`, `CabecalhoPagina` (com migalhas), `CopiarLink` | Navegação e identificação |
+| `Abas` (abaixo de 768px as abas quebram de linha, todas visíveis), `Passos`, `Avatar`, `CabecalhoPagina` (com migalhas), `CopiarLink` | Navegação e identificação |
 | `Barras`, `Empilhada`, `Linha`, `Sparkline`, `Medidor` | Gráficos (abaixo) |
 
 ## Regras de gráficos (resumo do guia dataviz)

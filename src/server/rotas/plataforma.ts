@@ -6,11 +6,14 @@ import type { LinhaTenant, StatusEscritorio } from "../db/repositorio";
 import { auditar } from "../auditoria";
 import { criarConvite } from "../convites";
 import { exigirSessao, ipDe } from "../sessao";
+import { registrarDiagnosticoDjen } from "./diagnostico-djen";
 import { ehPlano, lerJson, normalizarEmail, normalizarNome, respostaErro } from "../validacao";
 
 // Todas as rotas aqui são do dono da plataforma, com 2FA concluído.
 export const rotasPlataforma = new Hono<{ Bindings: Env; Variables: Variaveis }>();
 rotasPlataforma.use("*", exigirSessao({ papel: "dono" }));
+
+registrarDiagnosticoDjen(rotasPlataforma);
 
 const DIAS_TESTE = 14;
 const STATUS_PERMITIDOS: readonly StatusEscritorio[] = ["ativo", "suspenso", "cancelado"];

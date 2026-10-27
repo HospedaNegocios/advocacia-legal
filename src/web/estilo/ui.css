@@ -198,3 +198,6 @@ select.entrada-compacta { min-width: 8.5rem; min-height: 2.25rem; font-size: var
 .modulo strong { display: block; color: var(--cor-texto); font-size: var(--texto-sm); }
 .modulo small { font-size: var(--texto-xs); }
 .item-lista-venc { display: flex; align-items: center; gap: var(--e-3); }
+
+/* Trecho de resposta de erro (diagnóstico): código em bloco discreto. */
+.bloco-codigo { margin: var(--e-3) 0 0; padding: var(--e-3); background: var(--cor-superficie-3); color: var(--cor-texto-2); border-radius: var(--raio-sm); font-family: var(--fonte-mono); font-size: var(--texto-sm); white-space: pre-wrap; overflow-wrap: anywhere; }

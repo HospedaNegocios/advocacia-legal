@@ -3,6 +3,7 @@ import { Casca } from "./layout/Casca";
 import { TelaAcesso } from "./layout/TelaAcesso";
 import { AceitarAcesso } from "./paginas/AceitarAcesso";
 import { Configurar2fa } from "./paginas/Configurar2fa";
+import { Diagnostico } from "./paginas/Diagnostico";
 import { Equipe } from "./paginas/Equipe";
 import { Escritorios } from "./paginas/Escritorios";
 import { Inicio } from "./paginas/Inicio";
@@ -50,6 +51,7 @@ function Rotas() {
 
   let conteudo = dono ? <Painel /> : <Inicio />;
   if (caminho === "/escritorios" && dono) conteudo = <Escritorios />;
+  else if (caminho === "/diagnostico" && dono) conteudo = <Diagnostico />;
   else if (caminho === "/equipe" && eu.usuario.perfil === "socio") conteudo = <Equipe />;
   else if (caminho === "/seguranca") conteudo = <Configurar2fa obrigatorio={false} />;
   return <Casca>{conteudo}</Casca>;

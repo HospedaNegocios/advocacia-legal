@@ -7,6 +7,10 @@ export interface EscritorioResumo {
   plano: Plano;
   status: Status;
   teste_ate: string | null;
+  /** Último dia do teste (AAAA-MM-DD, dia de São Paulo). */
+  teste_ultimo_dia?: string | null;
+  /** Situação calculada pelo servidor: normal, leitura (somente leitura) ou bloqueado. */
+  assinatura?: { situacao: "normal" | "leitura" | "bloqueado"; bloqueio_desde: string | null };
   criado_em: string;
   usuarios: number;
 }

@@ -4,6 +4,7 @@ import type { DragEvent } from "react";
 import { ErroApi, api } from "../api";
 import { Link } from "../roteador";
 import { useSessao } from "../sessao";
+import { TEXTO_SOMENTE_LEITURA, useSomenteLeitura } from "../somente-leitura";
 import { Botao, CabecalhoPagina, Cartao, Confirmar, Entrada, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Indicador, Selecao, SelecaoCompacta, SeletorBusca, Selo, Tabela, useToast } from "../ui";
 import type { Coluna } from "../ui";
 import { ICONE_STATUS_PRAZO, ROTULO_STATUS_PRAZO, STATUS_PRAZO, SeloPrazo, dataFatalTexto } from "./agenda-comum";
@@ -49,6 +50,7 @@ export function Prazos() {
   const { avisar } = useToast();
   const { eu } = useSessao();
   const ehSocio = eu?.usuario.perfil === "socio";
+  const somenteLeitura = useSomenteLeitura();
   const [visao, setVisaoEstado] = useState<Visao>(lerVisao);
   const [resumo, setResumo] = useState<Resumo | null>(null);
   const [prazos, setPrazos] = useState<Prazo[] | null>(null);
@@ -165,6 +167,7 @@ export function Prazos() {
   const aoSoltar = (e: DragEvent, alvo: StatusPrazo) => {
     e.preventDefault();
     setSobre(null);
+    if (somenteLeitura) return;
     const id = e.dataTransfer.getData("text/plain") || arrastando;
     setArrastando(null);
     const p = prazos?.find((x) => x.id === id);
@@ -194,7 +197,7 @@ export function Prazos() {
   );
 
   const seletorMover = (p: Prazo) => (
-    <SelecaoCompacta aria-label={`Mover o prazo ${p.titulo} para`} value={p.status} onChange={(e) => void mover(p, e.target.value as StatusPrazo)}>
+    <SelecaoCompacta aria-label={`Mover o prazo ${p.titulo} para`} disabled={somenteLeitura} title={somenteLeitura ? TEXTO_SOMENTE_LEITURA : undefined} value={p.status} onChange={(e) => void mover(p, e.target.value as StatusPrazo)}>
       {STATUS_PRAZO.map((s) => (
         <option key={s} value={s}>
           {ROTULO_STATUS_PRAZO[s]}
@@ -385,7 +388,7 @@ export function Prazos() {
                             className="kanban-cartao"
                             data-situacao={p.situacao}
                             data-arrastando={arrastando === p.id}
-                            draggable
+                            draggable={!somenteLeitura}
                             onDragStart={(e) => {
                               e.dataTransfer.setData("text/plain", p.id);
                               e.dataTransfer.effectAllowed = "move";

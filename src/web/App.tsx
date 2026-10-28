@@ -22,6 +22,7 @@ import { navegar, useCaminho } from "./roteador";
 import { ProvedorSessao, useSessao } from "./sessao";
 import { ProvedorTema } from "./tema";
 import { ProvedorToast, Esqueleto } from "./ui";
+import { AssinaturaVencida } from "./paginas/AssinaturaVencida";
 import { PortalApp } from "./portal/PortalApp";
 
 function Ir({ para }: { para: string }) {
@@ -57,6 +58,8 @@ function Rotas() {
   if (caminho === "/entrar") return <Ir para="/" />;
 
   const dono = eu.usuario.dono_plataforma;
+  // Teste vencido há mais de 10 dias: só a tela "Assinatura vencida" (o servidor recusa todo o resto).
+  if (!dono && eu.assinatura?.situacao === "bloqueado") return <AssinaturaVencida />;
   if (dono && caminho === "/plataforma") return <Ir para="/" />;
 
   let conteudo = dono ? <Painel /> : <Inicio />;

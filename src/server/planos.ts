@@ -7,6 +7,18 @@ export function limiteDeOabs(plano: Plano): number | null {
   return null;
 }
 
+/** Limite de usuários por plano (CLAUDE.md, planos aprovados): Individual 1, Equipe 5, Sociedade ilimitado. `null` = ilimitado. Conta usuários ativos + convites pendentes. */
+export const LIMITE_USUARIOS: Record<Plano, number | null> = { solo: 1, escritorio: 5, banca: null };
+
+export function limiteDeUsuarios(plano: Plano): number | null {
+  return LIMITE_USUARIOS[plano];
+}
+
+export function mensagemLimiteDeUsuarios(plano: Plano): string {
+  const limite = limiteDeUsuarios(plano);
+  return `Limite de usuários do plano atingido. O plano ${NOME_PLANO[plano]} permite ${limite} usuário${limite === 1 ? "" : "s"} (contando convites pendentes). Desative um usuário, exclua um convite pendente ou peça a troca de plano.`;
+}
+
 const NOME_PLANO: Record<Plano, string> = { solo: "Individual", escritorio: "Equipe", banca: "Sociedade" };
 
 export function mensagemLimiteDeOabs(plano: Plano): string {

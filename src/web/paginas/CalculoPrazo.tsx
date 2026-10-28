@@ -102,7 +102,7 @@ export function CalculoPrazo({ aoUsar }: { aoUsar: (dataFinal: string) => void }
         Suspender o prazo de 20/12 a 20/01 (CPC art. 220)
       </CampoMarcar>
       <div>
-        <Botao carregando={calculando} onClick={() => void calcular()}>
+        <Botao leitura carregando={calculando} onClick={() => void calcular()}>
           Calcular
         </Botao>
       </div>
@@ -114,6 +114,7 @@ export function CalculoPrazo({ aoUsar }: { aoUsar: (dataFinal: string) => void }
             <strong>{dataPorExtenso(resultado.data_final)}</strong>
           </p>
           <Botao
+            leitura
             onClick={() => {
               aoUsar(resultado.data_final);
               setUsada(true);

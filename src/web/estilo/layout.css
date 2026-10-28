@@ -140,3 +140,8 @@
 .passos li[data-estado="feito"]::before, .passos li[data-estado="atual"]::before { background: var(--cor-marca); }
 .passos li[data-estado="atual"] { color: var(--cor-texto); }
 .passos .passo-num { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Faixa fixa de "somente leitura" (teste vencido): fica logo abaixo da barra superior e acompanha a rolagem. */
+.faixa-assinatura { position: sticky; top: var(--topo-altura); z-index: 15; padding: var(--e-3) var(--e-6) 0; background: var(--cor-fundo); }
+.faixa-assinatura .aviso { max-width: 78rem; margin: 0 auto; border: 1px solid var(--cor-borda); }
+@media (max-width: 767px) { .faixa-assinatura { position: static; padding: var(--e-2) var(--e-4) 0; } .faixa-assinatura .aviso { font-size: var(--texto-xs); padding: var(--e-2) var(--e-3); } }

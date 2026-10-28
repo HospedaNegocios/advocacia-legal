@@ -7,6 +7,7 @@ import type { NivelPermissao } from "../db/repositorio";
 import type { LinhaUsuario } from "../db/repositorio";
 import { auditar } from "../auditoria";
 import { criarConvite } from "../convites";
+import { limiteDeUsuarios, mensagemLimiteDeUsuarios } from "../planos";
 import { exigirSessao, ipDe } from "../sessao";
 import { ehPerfil, lerJson, normalizarEmail, respostaErro } from "../validacao";
 
@@ -38,10 +39,13 @@ function repoDaSessao(c: Context<{ Bindings: Env; Variables: Variaveis }, any>) 
 rotasEquipe.get("/usuarios", async (c) => {
   const repo = repoDaSessao(c);
   const [usuarios, escritorio] = await Promise.all([repo.users.listar({}, { limite: 200 }), repo.buscarMeuEscritorio()]);
+  const vagas = await repo.vagas.contarOcupadas();
   return c.json({
     ok: true,
     usuarios: usuarios.map(usuarioPublico),
     exigir_2fa: escritorio?.exigir_2fa === 1,
+    // Vagas do plano: usuários ativos + convites pendentes (limite null = ilimitado).
+    vagas: { usados: vagas.total, ativos: vagas.ativos, convites_pendentes: vagas.convites_pendentes, limite: escritorio ? limiteDeUsuarios(escritorio.plano) : null },
   });
 });
 
@@ -56,7 +60,9 @@ rotasEquipe.post("/convites", async (c) => {
     perfil: corpo.perfil,
     criadoPor: sessao.usuario.id,
   });
-  if (!r.ok) return respostaErro(c, 409, "Já existe um usuário com este e-mail no escritório.");
+  if (!r.ok) {
+    return respostaErro(c, 409, r.motivo === "limite" ? mensagemLimiteDeUsuarios(r.plano) : "Já existe um usuário com este e-mail no escritório.");
+  }
   await auditar(c.env.DB, {
     tenantId: sessao.tenantId,
     userId: sessao.usuario.id,
@@ -114,6 +120,14 @@ rotasEquipe.post("/usuarios/:id/reativar", async (c) => {
   const repo = repoDaSessao(c);
   const alvo = await repo.users.buscar(c.req.param("id"));
   if (!alvo) return respostaErro(c, 404, "Usuário não encontrado.");
+  if (alvo.ativo !== 1) {
+    // Reativar também respeita o limite do plano (ativos + convites pendentes, sem contar este usuário).
+    const escritorio = await repo.buscarMeuEscritorio();
+    const limite = escritorio ? limiteDeUsuarios(escritorio.plano) : null;
+    if (escritorio && limite !== null && (await repo.vagas.contarOcupadas(alvo.id)).total >= limite) {
+      return respostaErro(c, 409, mensagemLimiteDeUsuarios(escritorio.plano));
+    }
+  }
   await repo.users.atualizar(alvo.id, { ativo: 1 });
   await auditar(c.env.DB, {
     tenantId: sessao.tenantId,
@@ -121,6 +135,24 @@ rotasEquipe.post("/usuarios/:id/reativar", async (c) => {
     acao: "usuario_reativado",
     entidade: "users",
     entidadeId: alvo.id,
+    ip: ipDe(c),
+  });
+  return c.json({ ok: true });
+});
+
+/** Exclui um convite pendente (gerado por engano). Convite já aceito (usuário com senha) não é excluído: use "desativar". */
+rotasEquipe.delete("/convites/:usuarioId", async (c) => {
+  const sessao = c.get("sessao");
+  const id = c.req.param("usuarioId");
+  const r = await repoDaSessao(c).vagas.excluirConvitePendente(id);
+  if (r === "nao_encontrado") return respostaErro(c, 404, "Convite não encontrado.");
+  if (r === "nao_pendente") return respostaErro(c, 409, "Este convite já foi aceito e não pode ser excluído. Se for o caso, desative o usuário.");
+  await auditar(c.env.DB, {
+    tenantId: sessao.tenantId,
+    userId: sessao.usuario.id,
+    acao: "convite_excluido",
+    entidade: "users",
+    entidadeId: id,
     ip: ipDe(c),
   });
   return c.json({ ok: true });

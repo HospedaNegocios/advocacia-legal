@@ -2,9 +2,11 @@ import { Briefcase, Contact, Building2, CalendarDays, ChevronsLeft, ChevronsRigh
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Marca } from "../ui";
+import { Aviso, Marca } from "../ui";
 import { Link, navegar, useCaminho } from "../roteador";
 import { useSessao } from "../sessao";
+import { ProvedorSomenteLeitura } from "../somente-leitura";
+import { formatarDiaCivil } from "../api";
 import { MenuUsuario } from "./MenuUsuario";
 import { AvisoDePrazos, useAlertasPrazos } from "./AlertasPrazos";
 import { useContagemIntimacoes } from "./contagem-intimacoes";
@@ -75,6 +77,7 @@ export function Casca({ children }: { children: ReactNode }) {
 
   if (!eu) return null;
   const { usuario, escritorio } = eu;
+  const somenteLeitura = ehEscritorio && eu.assinatura?.situacao === "leitura";
 
   const alternarRecolhida = () => {
     setRecolhida((v) => {
@@ -179,8 +182,17 @@ export function Casca({ children }: { children: ReactNode }) {
             }}
           />
         </header>
+        {somenteLeitura && (
+          <div className="faixa-assinatura">
+            <Aviso tipo="atencao">
+              <strong>Somente leitura.</strong> O período de teste do escritório terminou
+              {eu.assinatura?.ultimo_dia_teste ? ` em ${formatarDiaCivil(eu.assinatura.ultimo_dia_teste)}` : ""}. Você pode consultar tudo e baixar documentos, mas não pode criar nem alterar nada
+              {eu.assinatura?.bloqueio_desde ? `. O acesso será bloqueado em ${formatarDiaCivil(eu.assinatura.bloqueio_desde)}` : ""}. Fale com o suporte para ativar a assinatura.
+            </Aviso>
+          </div>
+        )}
         <main className="conteudo" id="conteudo" tabIndex={-1}>
-          {children}
+          <ProvedorSomenteLeitura value={somenteLeitura}>{children}</ProvedorSomenteLeitura>
         </main>
         {ehEscritorio && <AvisoDePrazos dados={alertas.dados} aberto={alertas.aberto} aoFechar={alertas.dispensar} />}
       </div>

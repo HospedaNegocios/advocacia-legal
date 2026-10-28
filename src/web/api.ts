@@ -52,10 +52,22 @@ export type Status = "teste" | "ativo" | "suspenso" | "cancelado";
 
 export interface Eu {
   usuario: { id: string; nome: string; email: string; perfil: Perfil | null; dono_plataforma: boolean; totp_ativo: boolean };
-  escritorio: { nome: string; status: Status; exigir_2fa: boolean } | null;
+  escritorio: { nome: string | null; status: Status; exigir_2fa: boolean } | null;
   /** Nível do próprio usuário em cada módulo (sócio = "edicao"). Só adapta a tela; a API confere a cada requisição. */
   permissoes: { financeiro: NivelAcesso };
+  /** Situação da assinatura (teste vencido: somente leitura por 10 dias e depois bloqueio). Ausente para o dono da plataforma. */
+  assinatura?: Assinatura;
   pendente_2fa: boolean;
+}
+
+export type SituacaoAssinatura = "normal" | "leitura" | "bloqueado";
+export interface Assinatura {
+  situacao: SituacaoAssinatura;
+  ultimo_dia_teste?: string | null;
+  leitura_desde?: string | null;
+  bloqueio_desde?: string | null;
+  dias_para_fim_teste?: number | null;
+  dias_para_bloqueio?: number | null;
 }
 
 export type NivelAcesso = "nenhum" | "leitura" | "edicao";
@@ -82,6 +94,13 @@ export const ROTULO_STATUS: Record<Status, string> = {
 export function formatarDia(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("pt-BR");
+}
+
+/** Dia civil AAAA-MM-DD (sem fuso) para dd/mm/aaaa. */
+export function formatarDiaCivil(dia: string | null | undefined): string {
+  if (!dia) return "—";
+  const [a, m, d] = dia.split("-");
+  return `${d}/${m}/${a}`;
 }
 
 export function formatarData(iso: string | null): string {

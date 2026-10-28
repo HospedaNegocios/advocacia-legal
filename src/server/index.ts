@@ -3,6 +3,7 @@ import type { Env } from "./env";
 import type { Variaveis } from "./contexto";
 import { cabecalhosDeSeguranca } from "./seguranca";
 import { protecaoCsrf } from "./csrf";
+import { controleDeAssinatura } from "./assinatura";
 import { rotasAuth } from "./rotas/auth";
 import { rotasAcesso, rotasDoisFatores } from "./rotas/acesso";
 import { rotasEu } from "./rotas/eu";
@@ -36,6 +37,8 @@ app.use("/api/*", async (c, next) => {
   c.res.headers.set("Cache-Control", "no-store");
 });
 app.use("/api/*", protecaoCsrf);
+// Teste vencido: somente leitura por 10 dias e depois bloqueio (src/comum/assinatura.ts). Falha fechada para toda rota de escritório.
+app.use("/api/*", controleDeAssinatura);
 
 app.get("/api/saude", (c) => c.json({ ok: true, ambiente: c.env.AMBIENTE }));
 

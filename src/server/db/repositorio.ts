@@ -12,6 +12,8 @@
  *    que só deve ser usado pelo painel do dono (rotas protegidas por papel 'dono').
  */
 
+import { limiteDeBloqueioIso } from "../../comum/assinatura";
+
 // ---------- Tipos das linhas ----------
 
 export type Plano = "solo" | "escritorio" | "banca";
@@ -983,6 +985,13 @@ export interface Repositorio {
   };
   sessions: RepositorioTabela<LinhaSessao>;
   tokens: RepositorioTabela<LinhaTokenAcesso>;
+  /** Vagas de usuário do plano e convites pendentes (convite = usuário sem senha definida + link de uso único válido). */
+  vagas: {
+    /** Usuários ativos com senha + convites pendentes (não usados e não expirados). `exceto` ignora um usuário (ex.: reconvite ou reativação dele). */
+    contarOcupadas(exceto?: string | null, agoraIso?: string): Promise<{ ativos: number; convites_pendentes: number; total: number }>;
+    /** Exclui um convite que ainda não foi aceito (usuário sem senha definida): remove links, permissões e o usuário provisório. */
+    excluirConvitePendente(usuarioId: string): Promise<"ok" | "nao_encontrado" | "nao_pendente">;
+  };
   /** Clientes. `nome_busca` é calculado aqui a partir de nome e nome fantasia (não vem de fora). */
   clientes: RepositorioTabela<LinhaCliente> & {
     pesquisar(filtro?: FiltroClientes): Promise<{ itens: LinhaCliente[]; total: number }>;
@@ -1272,6 +1281,37 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
       return r.meta.changes > 0;
     },
     users: montarTabela(db, tid, "users"),
+    vagas: {
+      async contarOcupadas(exceto = null, agoraIso = agora()) {
+        const l = await db
+          .prepare(
+            `SELECT
+               COALESCE(SUM(CASE WHEN u.senha_definida = 1 THEN 1 END), 0) AS ativos,
+               COALESCE(SUM(CASE WHEN u.senha_definida = 0 THEN 1 END), 0) AS convites_pendentes
+             FROM users u
+             WHERE u.tenant_id = ? AND u.ativo = 1 AND u.id <> ?
+               AND (u.senha_definida = 1 OR EXISTS (
+                 SELECT 1 FROM tokens_acesso k
+                 WHERE k.user_id = u.id AND k.tenant_id = u.tenant_id AND k.tipo = 'convite' AND k.usado_em IS NULL AND k.expira_em > ?))`,
+          )
+          .bind(tid, exceto ?? "", agoraIso)
+          .first<{ ativos: number; convites_pendentes: number }>();
+        const ativos = l?.ativos ?? 0;
+        const convites = l?.convites_pendentes ?? 0;
+        return { ativos, convites_pendentes: convites, total: ativos + convites };
+      },
+      async excluirConvitePendente(usuarioId) {
+        const u = await db.prepare("SELECT id, senha_definida FROM users WHERE id = ? AND tenant_id = ?").bind(usuarioId, tid).first<{ id: string; senha_definida: number }>();
+        if (!u) return "nao_encontrado";
+        if (u.senha_definida !== 0) return "nao_pendente";
+        await db.batch([
+          db.prepare("DELETE FROM tokens_acesso WHERE user_id = ? AND tenant_id = ?").bind(u.id, tid),
+          db.prepare("DELETE FROM permissoes_usuario WHERE usuario_id = ? AND tenant_id = ?").bind(u.id, tid),
+          db.prepare("DELETE FROM users WHERE id = ? AND tenant_id = ? AND senha_definida = 0").bind(u.id, tid),
+        ]);
+        return "ok";
+      },
+    },
     perfil: {
       async buscar() {
         return (await db.prepare("SELECT * FROM escritorio_perfil WHERE tenant_id = ?").bind(tid).first<LinhaPerfilEscritorio>()) ?? null;
@@ -2453,17 +2493,17 @@ export interface OabParaColetar {
 
 export interface AcessoAgendado {
   /**
-   * OABs ATIVAS de escritórios em operação (teste ou ativo), as nunca coletadas primeiro e depois as de coleta mais antiga,
+   * OABs ATIVAS de escritórios em operação (teste ou ativo, exceto teste vencido há mais de 10 dias = bloqueado; ver src/comum/assinatura.ts), as nunca coletadas primeiro e depois as de coleta mais antiga,
    * para que o limite por rodada seja dividido de forma justa entre os escritórios.
    */
-  oabsParaColetar(limite: number): Promise<OabParaColetar[]>;
-  /** Escritórios em teste ou ativos (mesma regra do login: suspenso e cancelado ficam de fora), em ordem de id, a partir de `depoisDe`. */
-  escritoriosEmOperacao(depoisDe: string | null, limite: number): Promise<EscritorioEmOperacao[]>;
+  oabsParaColetar(limite: number, agora?: number): Promise<OabParaColetar[]>;
+  /** Escritórios em teste ou ativos, sem os bloqueados por teste vencido (suspenso e cancelado também ficam de fora), em ordem de id, a partir de `depoisDe`. */
+  escritoriosEmOperacao(depoisDe: string | null, limite: number, agora?: number): Promise<EscritorioEmOperacao[]>;
 }
 
 export function criarAcessoAgendado(db: D1Database): AcessoAgendado {
   return {
-    async oabsParaColetar(limite) {
+    async oabsParaColetar(limite, agoraMs = Date.now()) {
       const { results } = await db
         .prepare(
           `SELECT o.tenant_id AS tenant_id, o.id AS oab_id, o.numero AS numero, o.uf AS uf,
@@ -2471,16 +2511,20 @@ export function criarAcessoAgendado(db: D1Database): AcessoAgendado {
                   (SELECT MAX(e.concluida_em) FROM djen_execucoes e WHERE e.tenant_id = o.tenant_id AND e.oab_id = o.id AND e.resultado = 'sucesso') AS ultima_concluida_em
            FROM oabs o JOIN tenants t ON t.id = o.tenant_id
            WHERE o.ativo = 1 AND t.status IN ('teste', 'ativo')
+             AND NOT (t.status = 'teste' AND t.teste_ate IS NOT NULL AND t.teste_ate < ?)
            ORDER BY (ultima_concluida_em IS NOT NULL), ultima_concluida_em, o.tenant_id, o.id LIMIT ?`,
         )
-        .bind(Math.min(Math.max(Math.trunc(limite), 1), 1000))
+        .bind(limiteDeBloqueioIso(agoraMs), Math.min(Math.max(Math.trunc(limite), 1), 1000))
         .all<OabParaColetar>();
       return results;
     },
-    async escritoriosEmOperacao(depoisDe, limite) {
+    async escritoriosEmOperacao(depoisDe, limite, agoraMs = Date.now()) {
       const { results } = await db
-        .prepare("SELECT id, nome FROM tenants WHERE status IN ('teste', 'ativo') AND id > ? ORDER BY id LIMIT ?")
-        .bind(depoisDe ?? "", Math.min(Math.max(Math.trunc(limite), 1), LIMITE_MAXIMO))
+        .prepare(
+          `SELECT id, nome FROM tenants WHERE status IN ('teste', 'ativo') AND id > ?
+             AND NOT (status = 'teste' AND teste_ate IS NOT NULL AND teste_ate < ?) ORDER BY id LIMIT ?`,
+        )
+        .bind(depoisDe ?? "", limiteDeBloqueioIso(agoraMs), Math.min(Math.max(Math.trunc(limite), 1), LIMITE_MAXIMO))
         .all<EscritorioEmOperacao>();
       return results;
     },
@@ -2493,6 +2537,8 @@ export interface UsuarioComEscritorio extends LinhaUsuario {
   tenant_nome: string | null;
   tenant_status: StatusEscritorio | null;
   tenant_exigir_2fa: number | null;
+  tenant_plano: Plano | null;
+  tenant_teste_ate: string | null;
 }
 
 export interface LinhaTokenComUsuario extends LinhaTokenAcesso {
@@ -2513,7 +2559,8 @@ export interface NovaSessao {
   user_agent: string | null;
 }
 
-const SELECT_USUARIO_COM_ESCRITORIO = `SELECT u.*, t.nome AS tenant_nome, t.status AS tenant_status, t.exigir_2fa AS tenant_exigir_2fa
+const SELECT_USUARIO_COM_ESCRITORIO = `SELECT u.*, t.nome AS tenant_nome, t.status AS tenant_status, t.exigir_2fa AS tenant_exigir_2fa,
+  t.plano AS tenant_plano, t.teste_ate AS tenant_teste_ate
   FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id`;
 
 /**

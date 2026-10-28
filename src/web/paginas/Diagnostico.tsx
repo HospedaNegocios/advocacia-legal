@@ -19,6 +19,34 @@ interface Resultado {
   quando: string;
 }
 
+interface AlvoDatajud {
+  nome: string;
+  ok: boolean;
+  status: number | null;
+  duracaoMs: number;
+  hits: number | null;
+  trecho: string | null;
+  erro: string | null;
+}
+interface ResultadoDatajud {
+  colo: string | null;
+  pais: string | null;
+  resultados: AlvoDatajud[];
+}
+
+function segundos(ms: number): string {
+  return (ms / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+/** Frase simples para uma linha do teste do DataJud. */
+function fraseDatajud(a: AlvoDatajud): string {
+  const nome = a.nome.startsWith("Conexão") ? "Conexão simples" : a.nome;
+  if (a.status === null) {
+    return a.erro?.startsWith("Tempo esgotado") ? `${nome}: não respondeu em 20 s` : `${nome}: falha de rede em ${segundos(a.duracaoMs)} s${a.erro ? ` (${a.erro})` : ""}`;
+  }
+  return `${nome}: respondeu em ${segundos(a.duracaoMs)} s (código ${a.status})${a.hits !== null ? `, ${a.hits} item(ns)` : ""}`;
+}
+
 type Situacao = "sucesso" | "bloqueado" | "erro";
 
 function situacaoDe(r: Resultado): Situacao {
@@ -67,6 +95,22 @@ export function Diagnostico() {
     }
   };
 
+  const [testandoDj, setTestandoDj] = useState(false);
+  const [erroDj, setErroDj] = useState("");
+  const [datajud, setDatajud] = useState<ResultadoDatajud | null>(null);
+
+  const testarDatajud = async () => {
+    setErroDj("");
+    setTestandoDj(true);
+    try {
+      setDatajud(await api<ResultadoDatajud>("POST", "/api/plataforma/diagnostico/datajud"));
+    } catch (e) {
+      setErroDj(e instanceof ErroApi ? e.message : "Algo deu errado.");
+    } finally {
+      setTestandoDj(false);
+    }
+  };
+
   const ultimo = historico[0];
   return (
     <>
@@ -83,6 +127,39 @@ export function Diagnostico() {
           {erro && (
             <div style={{ marginTop: "var(--e-3)" }}>
               <Aviso>{erro}</Aviso>
+            </div>
+          )}
+        </Cartao>
+
+        <Cartao titulo="DataJud (CNJ)" subtitulo="Verifica se o DataJud responde a chamadas vindas do servidor do sistema.">
+          <p style={{ marginTop: 0 }}>
+            O teste faz três chamadas ao mesmo tempo, com limite de 20 segundos cada: uma busca de 1 item no TJDFT e outra no TJSP (com a chave do sistema) e uma conexão simples, sem chave. Nada da resposta é guardado e a chave nunca é mostrada.
+          </p>
+          <Botao carregando={testandoDj} onClick={() => void testarDatajud()}>
+            {testandoDj ? "Testando..." : "Testar DataJud"}
+          </Botao>
+          {erroDj && (
+            <div style={{ marginTop: "var(--e-3)" }}>
+              <Aviso>{erroDj}</Aviso>
+            </div>
+          )}
+          {datajud && (
+            <div aria-live="polite" style={{ marginTop: "var(--e-3)" }}>
+              <ul>
+                {datajud.resultados.map((a) => (
+                  <li key={a.nome}>
+                    <Selo tom={a.ok ? "bom" : a.status === 401 || a.status === 403 ? "critico" : "aviso"} icone={a.ok ? CircleCheck : CircleX}>
+                      {a.ok ? "Funcionou" : "Problema"}
+                    </Selo>{" "}
+                    {fraseDatajud(a)}
+                    {a.trecho && <pre className="bloco-codigo">{a.trecho}</pre>}
+                  </li>
+                ))}
+              </ul>
+              <p>
+                Data center da Cloudflare: {datajud.colo ?? "—"}
+                {datajud.pais ? ` (${datajud.pais})` : ""}
+              </p>
             </div>
           )}
         </Cartao>

@@ -8,6 +8,7 @@ import { criarConvite } from "../convites";
 import { mensagemLimiteDeUsuarios } from "../planos";
 import { exigirSessao, ipDe } from "../sessao";
 import { registrarDiagnosticoDjen } from "./diagnostico-djen";
+import { registrarDiagnosticoDatajud } from "./diagnostico-datajud";
 import { dataCivilValida } from "../../comum/fuso";
 import { resumoDaAssinatura, testeAteDoDia, ultimoDiaDoTeste } from "../../comum/assinatura";
 import { ehPlano, lerJson, normalizarEmail, normalizarNome, respostaErro } from "../validacao";
@@ -17,6 +18,7 @@ export const rotasPlataforma = new Hono<{ Bindings: Env; Variables: Variaveis }>
 rotasPlataforma.use("*", exigirSessao({ papel: "dono" }));
 
 registrarDiagnosticoDjen(rotasPlataforma);
+registrarDiagnosticoDatajud(rotasPlataforma);
 
 const DIAS_TESTE = 14;
 const STATUS_PERMITIDOS: readonly StatusEscritorio[] = ["ativo", "suspenso", "cancelado"];

@@ -16,12 +16,12 @@ export interface Env {
   URL_APP?: string;
   /** "true" liga o e-mail diário de prazos. Qualquer outro valor (ou ausente) deixa desligado. */
   EMAIL_ALERTAS_ATIVO?: string;
-  /** Endereço remetente dos alertas (precisa estar em domínio com Email Sending configurado na Cloudflare). */
+  /** Endereço remetente dos alertas (precisa ser de um domínio verificado no Resend). */
   EMAIL_REMETENTE?: string;
   /** "false" desliga a busca diária no DJEN (ausente = ligada). */
   DJEN_COLETA_ATIVA?: string;
-  /** Binding `send_email` do Cloudflare Email Service. */
-  EMAIL?: SendEmail;
+  /** Worker secret: chave de API do Resend (gravada pelo workflow `configurar-resend`). Nunca em código nem em log. */
+  RESEND_API_KEY?: string;
   /** Binding Workers AI (resumo das intimações). Ausente = recurso indisponível. */
   AI?: BindingIa;
 }

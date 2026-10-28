@@ -24,15 +24,14 @@
       "vars": {
         "AMBIENTE": "dev",
         "URL_APP": "https://dev.app.advocacia.legal",
-        // E-mail diário de prazos: DESLIGADO até o domínio estar configurado no Email Service (docs/EMAIL.md).
+        // E-mail diário de prazos (Resend): chave geral DESLIGADA até o Resend estar configurado (docs/EMAIL.md).
+        // Mesmo ligada, só recebe quem ativou em "Minha conta".
         "EMAIL_ALERTAS_ATIVO": "false",
-        // Remetente SUGERIDO, a confirmar com o dono (precisa ser de um domínio configurado no Email Sending).
+        // Remetente SUGERIDO, a confirmar com o dono (precisa ser de um domínio verificado no Resend).
         "EMAIL_REMETENTE": "alertas@advocacia.legal"
       },
       // Cron Trigger usa UTC. 10:00 UTC = 07:00 em America/Sao_Paulo (UTC-3 o ano todo: o Brasil não tem horário de verão desde 2019).
       "triggers": { "crons": ["0 10 * * *"] },
-      // Cloudflare Email Service (Email Sending). Sem restrição de destinatário: cada usuário recebe o próprio resumo.
-      "send_email": [{ "name": "EMAIL" }],
       // Workers AI (resumo das intimações). Franquia e preço: docs/IA.md.
       "ai": { "binding": "AI" },
       "d1_databases": [
@@ -53,15 +52,14 @@
       "vars": {
         "AMBIENTE": "prod",
         "URL_APP": "https://app.advocacia.legal",
-        // E-mail diário de prazos: DESLIGADO até o domínio estar configurado no Email Service (docs/EMAIL.md).
+        // E-mail diário de prazos (Resend): chave geral DESLIGADA até o Resend estar configurado (docs/EMAIL.md).
+        // Mesmo ligada, só recebe quem ativou em "Minha conta".
         "EMAIL_ALERTAS_ATIVO": "false",
-        // Remetente SUGERIDO, a confirmar com o dono (precisa ser de um domínio configurado no Email Sending).
+        // Remetente SUGERIDO, a confirmar com o dono (precisa ser de um domínio verificado no Resend).
         "EMAIL_REMETENTE": "alertas@advocacia.legal"
       },
       // Cron Trigger usa UTC. 10:00 UTC = 07:00 em America/Sao_Paulo (UTC-3 o ano todo: o Brasil não tem horário de verão desde 2019).
       "triggers": { "crons": ["0 10 * * *"] },
-      // Cloudflare Email Service (Email Sending). Sem restrição de destinatário: cada usuário recebe o próprio resumo.
-      "send_email": [{ "name": "EMAIL" }],
       // Workers AI (resumo das intimações). Franquia e preço: docs/IA.md.
       "ai": { "binding": "AI" },
       "d1_databases": [

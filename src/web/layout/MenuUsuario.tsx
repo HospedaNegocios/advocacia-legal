@@ -1,4 +1,4 @@
-import { LogOut, Monitor, Moon, ShieldCheck, Sun, ChevronDown } from "lucide-react";
+import { LogOut, Monitor, UserCog, Moon, ShieldCheck, Sun, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ROTULO_PERFIL } from "../api";
 import { Link } from "../roteador";
@@ -72,6 +72,12 @@ export function MenuUsuario({ aoSair }: { aoSair: () => void }) {
               </button>
             ))}
           </div>
+          {!usuario.dono_plataforma && (
+            <Link para="/minha-conta" className="menu-item" aoNavegar={() => setAberto(false)}>
+              <UserCog size={18} aria-hidden="true" />
+              Minha conta
+            </Link>
+          )}
           <Link para="/seguranca" className="menu-item" aoNavegar={() => setAberto(false)}>
             <ShieldCheck size={18} aria-hidden="true" />
             Segurança (2 etapas)

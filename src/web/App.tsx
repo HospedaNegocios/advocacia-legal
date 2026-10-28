@@ -17,6 +17,7 @@ import { Equipe } from "./paginas/Equipe";
 import { Escritorio } from "./paginas/Escritorio";
 import { Escritorios } from "./paginas/Escritorios";
 import { Inicio } from "./paginas/Inicio";
+import { MinhaConta } from "./paginas/MinhaConta";
 import { Login } from "./paginas/Login";
 import { Painel } from "./paginas/Painel";
 import { navegar, useCaminho } from "./roteador";
@@ -77,6 +78,7 @@ function Rotas() {
   else if (caminho === "/intimacoes" && !dono) conteudo = <Intimacoes />;
   else if (caminho === "/financeiro" && !dono && eu.permissoes.financeiro !== "nenhum") conteudo = <Financeiro />;
   else if (/^\/financeiro\/[^/]+\/recibo$/.test(caminho) && !dono && eu.permissoes.financeiro !== "nenhum") conteudo = <Recibo id={caminho.split("/")[2] as string} />;
+  else if (caminho === "/minha-conta" && !dono) conteudo = <MinhaConta />;
   else if (caminho === "/seguranca") conteudo = <Configurar2fa obrigatorio={false} />;
   return <Casca>{conteudo}</Casca>;
 }

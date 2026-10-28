@@ -1,59 +1,54 @@
-# E-mail
+# E-mail (Resend)
 
-## Decisão atual (2026-10-27)
-
+## Decisão (2026-10-27, implementada na branch `fase5-resend`)
 Palavras do usuário: "envio de email apenas na versão workers paid. podemos deixar isso para depois e utilizar o resend. vamos deixar por padrão desativado e o usuário ativa se necessário".
 
-Interpretação adotada (a confirmar com o usuário):
-- O envio de e-mail será feito pelo **Resend**, não pelo Cloudflare Email Service.
-- Fica para uma fase posterior.
-- Desativado por padrão; cada pessoa da equipe ativa, na própria conta, o e-mail diário de prazos (opt-in por usuário).
-- Até lá, o aviso de prazos é só o popup na tela.
-- O código atual (`EnviadorEmail`, `EMAIL_ALERTAS_ATIVO=false`, binding `send_email`) não foi alterado.
+- Envio pelo **Resend** (API REST chamada com `fetch`, sem SDK). O Cloudflare Email Service **não é mais usado** (binding `send_email` removido).
+- **Desligado por padrão em dois níveis:**
+  1. **Chave geral** `EMAIL_ALERTAS_ATIVO` (`"false"` no `wrangler.jsonc`, por ambiente). Só o dono liga, depois de configurar o Resend.
+  2. **Preferência de cada usuário** (padrão desligada): cada pessoa liga em **Minha conta**. Sem ela, nenhum e-mail sai para a pessoa, mesmo com a chave geral ligada.
+- Alerta diário às **07:00 America/Sao_Paulo** (Cron `0 10 * * *` UTC, já existente).
 
-O passo a passo da Cloudflare abaixo está **suspenso**; foi mantido só como referência histórica.
+## Fatos do Resend (consultados em 2026-10-28; não inventar além disto)
+| Fato | Fonte |
+| --- | --- |
+| Envio: `POST https://api.resend.com/emails`; cabeçalho `Authorization: Bearer <chave>` e `Content-Type: application/json`. Obrigatórios: `from` (aceita `Nome <email>`), `to` (texto ou lista, até 50), `subject`. Opcionais: `html`, `text`, `headers`. Resposta de sucesso: `{ "id": "..." }`. | https://resend.com/docs/api-reference/emails/send-email |
+| Base `https://api.resend.com`, só HTTPS. **Todo pedido precisa de `User-Agent`**; sem ele a resposta é 403 (código 1010). | https://resend.com/docs/api-reference/introduction |
+| **Idempotência:** cabeçalho `Idempotency-Key` (1 a 256 caracteres), guardado por **24 h**; mesma chave = mesma resposta, sem reenviar. Reuso com corpo diferente = 409 `invalid_idempotent_request`; pedido igual ainda em andamento = 409 `concurrent_idempotent_requests`; tamanho inválido = 400 `invalid_idempotency_key`. | https://resend.com/docs/dashboard/emails/idempotency-keys e https://resend.com/docs/api-reference/errors |
+| **Limite de taxa:** padrão **10 requisições por segundo por equipe** (todas as chaves somadas; aumento sob pedido). Cabeçalhos `ratelimit-limit`, `ratelimit-remaining`, `ratelimit-reset`, `retry-after`. Excedido = 429. | https://resend.com/docs/api-reference/rate-limit |
+| **Erros** (status / nome): 400 `validation_error`, 400 `invalid_idempotency_key`; 401 `missing_api_key`, 401 `restricted_api_key` (chave só de envio usada em outra ação), 401 `validation_error` (chave inválida/apagada); 403 `validation_error` (domínio do `from` não verificado, ou envio de teste só ao próprio endereço), 403 `suspended_api_key`, 403 `invalid_permission`; 409 (idempotência, acima); 422 `missing_required_field`; 429 `rate_limit_exceeded`, **429 `daily_quota_exceeded`** (só no plano gratuito; zera à meia-noite UTC), **429 `monthly_quota_exceeded`**; 500 `application_error`; 503 `service_unavailable`. A página não mostra o corpo JSON do erro. | https://resend.com/docs/api-reference/errors |
+| **Plano gratuito (página de preços em 2026-10-28):** 3.000 e-mails/mês, **100/dia**, 3 domínios. Pro US$ 20/mês (50.000 e-mails/mês, excedente US$ 0,90 por 1.000); Scale US$ 90/mês (100.000). Preços e limites mudam: **reconferir na página antes de contratar.** | https://resend.com/pricing |
+| **Domínio:** é preciso adicionar e verificar ao menos um domínio para enviar. **Recomendado usar um subdomínio** (exemplo da doc: `notifications.exemplo.com`) para isolar a reputação. A tela de domínio gera os registros DNS (SPF e DKIM, como TXT e MX ou CNAME) que devem ser **copiados exatamente**. O Return-Path padrão é `send.<domínio>` (pode ser trocado). Se um registro for CNAME, **desligar o proxy** (nuvem laranja da Cloudflare) ou a verificação não termina. Costuma verificar em ~15 minutos; pode levar até 72 h; depois disso há o botão "Restart verification". Depois de verificado, recomenda-se publicar um registro DMARC. | https://resend.com/docs/add-a-domain.md e https://resend.com/docs/dashboard/domains/introduction |
+| **Chave de API:** ao criar, escolhe-se a permissão. `full_access` (tudo) ou `sending_access` ("só envia e-mails"); `sending_access` pode ser restrita a um domínio. O nome da chave tem até 50 caracteres e o valor começa com `re_`. O valor **não pode ser visto depois de criado** (guarde na hora). | https://resend.com/docs/api-reference/api-keys/create-api-key e https://resend.com/docs/dashboard/api-keys/introduction |
 
-## O que vai ser preciso com o Resend (a fazer depois)
-- O usuário cria a conta no Resend e verifica o domínio.
-- A chave de API fica em segredo da Cloudflare, com o nome `RESEND_API_KEY`. Nunca no código.
-- Na hora de implementar, consultar a documentação oficial do Resend (resend.com/docs). Não inventar a API, preços nem limites.
-- Opção por usuário no perfil para receber o e-mail diário (padrão desligado).
-- Link de descadastro no e-mail.
-
----
-
-## Referência histórica (suspenso): Cloudflare Email Service
-
-Verificado na documentação oficial da Cloudflare em 2026-10-27 (developers.cloudflare.com/email-service/). O serviço aparece como **Beta** na navegação da doc.
-
-## O que a documentação diz
-- **Binding**: no `wrangler.jsonc`, `"send_email": [{ "name": "EMAIL" }]` (aqui já configurado em `dev` e `prod`). No código, `env.EMAIL.send({ to, from, subject, text, html })`. `from` aceita `"a@b.com"` ou `{ email, name }`. Devolve `{ messageId }`; em erro lança `Error` com `code` (ex.: `E_SENDER_NOT_VERIFIED`, `E_RATE_LIMIT_EXCEEDED`, `E_DAILY_LIMIT_EXCEEDED`, `E_RECIPIENT_NOT_ALLOWED`).
-- **Binding sem restrição** (só `name`): envia para qualquer destinatário. Há opções `destination_address`, `allowed_destination_addresses` e `allowed_sender_addresses` (uma restrição por entrada). A doc não diz o que acontece quando uma restrição é violada.
-- **Remetente**: o domínio do `from` precisa estar **cadastrado ("onboarded") no Email Sending** da mesma conta. Exige **DNS da Cloudflare** no domínio.
-- **Antes de cadastrar o domínio**, só dá para enviar para endereços de destino verificados. **Depois**, para qualquer destinatário.
-- **Registros DNS** que a Cloudflare cria (no subdomínio `cf-bounce`): MX (bounces), SPF (TXT), DKIM (TXT) e DMARC (TXT em `_dmarc`). Propagação: normalmente 5 a 15 minutos, no máximo 24 horas.
-- **Limites**: 50 destinatários por e-mail; mensagem de até 5 MiB; assunto até 998 caracteres; cota diária começa baixa em contas novas e sobe conforme o uso (a página não dá números); há cota mensal (ver a página de preços). O CLAUDE.md registra 3.000 e-mails/mês incluídos no Workers Paid: **conferir na página de preços** antes de depender disso.
-- Conformidade: a doc cita CAN-SPAM, GDPR e CASL e recomenda opção de cancelar o recebimento. Este e-mail é um aviso operacional do próprio sistema ao usuário; avaliar com o DPO se precisa de opção de desativar (ver "Pendências").
+**Não confirmado na documentação (não afirmar):** os nomes e valores exatos dos registros DNS (aparecem só na tela do domínio, na hora); o formato JSON do corpo dos erros (o código lê o campo `name` apenas se existir e for curto e seguro, senão usa `http_<status>`); se o plano gratuito permite enviar de domínio que não seja de sua propriedade (não é o caso aqui).
 
 ## Como está no código
-- `src/server/email.ts`: interface `EnviadorEmail` + implementação `criarEnviadorCloudflare` (usa o binding). Testes usam um enviador falso.
-- `src/server/alertas-email.ts`: monta e envia o resumo diário; chamado pelo `scheduled` de `src/server/index.ts`.
-- **Cron**: `0 10 * * *` (UTC) = 07:00 em America/Sao_Paulo. O Brasil está em UTC-3 o ano todo (sem horário de verão desde 2019; há teste cobrindo isso).
-- **Desligado por padrão**: variável `EMAIL_ALERTAS_ATIVO = "false"` no `wrangler.jsonc`. Desligado, o cron só registra no log que parou. Nada é enviado.
-- Variáveis (sem segredos): `URL_APP` (dev `https://dev.app.advocacia.legal`, prod `https://app.advocacia.legal`) e `EMAIL_REMETENTE` (**`alertas@advocacia.legal` é só uma sugestão a confirmar**).
-- Um e-mail por usuário por dia, só se houver prazo não concluído vencido, de hoje ou dos próximos 3 dias em que ele é o responsável. Registro em `alertas_enviados` (chave única escritório + usuário + dia) evita duplicidade. Se o envio falha, a reserva é desfeita e uma nova execução do mesmo dia tenta de novo. Escritório suspenso/cancelado e usuário inativo (ou que ainda não definiu a senha) não recebem.
-- Falhas vão para o log (só o código do erro) e para a auditoria (`alerta_email_falha`), sem e-mail nem texto de prazo.
+- `src/server/email.ts`: interface `EnviadorEmail` e `criarEnviadorResend` (`fetch` para `https://api.resend.com/emails`, tempo limite de 10 s, `User-Agent`, `Idempotency-Key`). Em **429 `rate_limit_exceeded`** espera o `retry-after` (até 5 s) e tenta **uma vez** mais. Os erros viram `ErroEnvioEmail` com **só um código curto e o status**: nunca a mensagem da resposta, o endereço, o texto ou a chave. Chave inválida (401/403 de chave) e cota esgotada (`daily_quota_exceeded`, `monthly_quota_exceeded`) **interrompem o lote do dia**; os demais erros só afetam aquele usuário.
+- `src/server/alertas-email.ts`: monta e envia o resumo; chamado pelo `scheduled`. `Idempotency-Key` = `alerta-prazos/<escritório>/<usuário>/<dia>/<16 primeiros hex do SHA-256 do texto>` (só ids, sem dado pessoal; se o conteúdo mudar, a chave muda e evita o 409).
+- **Quem recebe:** usuário **ativo, com senha definida, que ligou a preferência**, de escritório em operação (`teste` dentro do prazo, ou `ativo`; **suspenso, cancelado e teste bloqueado ficam de fora**; somente leitura recebe), com prazo não concluído vencido, de hoje ou dos próximos 3 dias em que é responsável. Sem prazos, não envia. Um e-mail por usuário por dia (`alertas_enviados`); se o envio falha, a reserva é desfeita e uma nova execução do dia tenta de novo.
+- **Preferência por usuário:** tabela `preferencias_usuario` (migração `0015`; escritório + usuário únicos; ausência de linha = desligado). `GET/PUT /api/eu/preferencias`: só o próprio usuário (escritório e usuário vêm da sessão; parâmetros extras são ignorados), auditoria `preferencia_alterada` só com ids e de/para. Tela **Minha conta** (menu do usuário). Se a chave geral estiver desligada, a tela avisa "O envio de e-mails ainda não foi habilitado pelo administrador" (a API só devolve `envio_habilitado: true/false`).
+- **Escritório em somente leitura ou bloqueado:** a rota `/api/eu/*` fica fora do controle central de assinatura (para o usuário sempre poder se descadastrar). Por isso a regra é aplicada na própria rota: **desligar é sempre permitido; ligar é recusado com HTTP 402** (como qualquer outra gravação).
+- **Rodapé do e-mail:** "Para parar de receber, desative em Minha conta" com o link `<URL_APP>/minha-conta` (exige login).
+- Logs e auditoria de falha (`alerta_email_falha`) trazem só o código do erro. Testes: `test/resend.test.ts` (Resend falso, nunca usa a rede) e `test/alertas.test.ts`.
 
-## O que VOCÊ precisa fazer (passo a passo)
-1. Entre no painel da Cloudflare, na conta do projeto.
-2. Vá em **Compute > Email Service > Email Sending** e clique em **Onboard Domain**.
-3. Escolha o domínio **advocacia.legal** (ele já usa o DNS da Cloudflare). Pode conferir os registros que serão criados e clique em **Done**.
-4. Espere alguns minutos (até 24 h) pela propagação.
-5. Decida o endereço remetente (sugestão: `alertas@advocacia.legal`) e me avise para eu ajustar `EMAIL_REMETENTE` se for outro.
-6. Para testar com segurança: em **dev**, troque `EMAIL_ALERTAS_ATIVO` para `"true"` no `wrangler.jsonc` e faça o deploy do dev. O cron roda sozinho às 07:00 do dia seguinte (peça-me se quiser um disparo manual para teste). Só depois repita em **prod**.
-7. Se a conta tiver limite diário baixo no início, é normal: ele sobe com o uso.
+## Passo a passo para você (sem precisar programar)
+Faça primeiro no **dev**; só depois repita no **prod**.
+
+1. **Conta no Resend:** crie em resend.com (e-mail do dono da plataforma).
+2. **Domínio:** em **Domains > Add Domain**, informe um subdomínio de envio (recomendado pelo Resend), por exemplo `mail.advocacia.legal` (**sugestão a confirmar com você**; o remetente padrão `alertas@advocacia.legal` só funciona se o domínio verificado for `advocacia.legal` ou cobrir esse endereço: me avise qual escolher e eu ajusto `EMAIL_REMETENTE`). Escolha a região mais próxima dos destinatários e deixe o Return-Path padrão.
+3. **DNS na Cloudflare:** na tela do domínio no Resend, aba **Records**, aparecem os registros (SPF e DKIM; tipos TXT e MX ou CNAME). No painel da Cloudflare, abra a zona **advocacia.legal > DNS > Records > Add record** e crie **cada um exatamente como o Resend mostra** (tipo, nome e valor, copiando e colando; para MX, também a prioridade). Se algum for do tipo **CNAME, deixe o proxy desligado (nuvem cinza, "Somente DNS")**. Não apague registros existentes de outros projetos.
+4. **Aguardar:** volte ao Resend e confira o status. Costuma levar uns 15 minutos; pode levar até 72 horas. Depois de verificado, o Resend recomenda criar também um registro DMARC (opcional).
+5. **Chave de API:** em **API Keys > Create API Key**, escolha a permissão **Sending access** (só envia e-mails) e, se a tela oferecer, restrinja ao seu domínio. **Copie a chave na hora** (começa com `re_`; depois não dá para ver). Crie uma chave para o dev e outra para o prod.
+6. **GitHub Secrets:** no repositório HospedaNegocios/advocacia-legal, **Settings > Secrets and variables > Actions > New repository secret**: `RESEND_API_KEY_DEV` (chave do dev) e, depois, `RESEND_API_KEY_PROD` (chave do prod).
+7. **Gravar no Cloudflare:** em **Actions > configurar-resend > Run workflow**, escolha o ambiente (dev primeiro). O valor nunca aparece no log. Se a chave já existir no Cloudflare, o workflow só avisa e não altera (marque **substituir** só para trocar a chave). Em **prod** roda apenas a partir da branch `main`.
+8. **Ligar a chave geral do ambiente:** no arquivo `wrangler.jsonc`, no bloco `dev` (depois `prod`), troque `"EMAIL_ALERTAS_ATIVO": "false"` por `"true"` e publique (o deploy aplica). Escolhi o arquivo, e não um segredo, porque a chave geral não é segredo, fica registrada no Git (quem ligou e quando) e é refeita a cada deploy: nada muda por acidente. Para desligar tudo de novo, volte para `"false"`.
+9. **Testar:** cada pessoa liga em **Minha conta** ("Receber por e-mail o resumo diário de prazos às 07:00"). O envio acontece no Cron das 07:00. Antes de ligar no prod, confira o remetente e reveja o limite do seu plano no Resend (o gratuito permite **100 e-mails por dia**).
 
 ## Pendências (precisam de decisão sua)
-- Confirmar o remetente (`alertas@advocacia.legal`?).
-- Confirmar na página de preços a cota mensal de envio do seu plano.
-- Dar ao usuário uma forma de desligar o e-mail diário? (hoje não há; o popup continua funcionando).
+- Confirmar o **remetente** (`alertas@advocacia.legal`?) e o **domínio/subdomínio** verificado no Resend.
+- Escolher o **plano do Resend**: o gratuito (100/dia, 3.000/mês) pode não bastar com muitos usuários; ver https://resend.com/pricing.
+- **Descadastro sem login** (link com token dentro do e-mail e cabeçalho `List-Unsubscribe`): **não implementado** nesta etapa; hoje o usuário desativa em Minha conta (exige login).
+- Reconferir os limites do Resend perto da contratação (mudam). Formato do corpo de erro da API (não documentado na página de erros): reconferir com uma chamada real no dev.
+- Termos e Política de Privacidade devem citar o **Resend como operador/suboperador** (envia nome e e-mail do usuário e títulos de prazos), a ser avaliado com o DPO.
+- Retentativa dentro do mesmo dia: se o Resend falhar, a próxima tentativa só ocorre quando o Cron rodar de novo (amanhã) ou por disparo manual; não há retentativa automática em horas.

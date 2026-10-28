@@ -1185,6 +1185,13 @@ export interface Repositorio {
     /** Desfaz a reserva quando o envio falhou, para que uma nova execução do dia possa tentar de novo. */
     liberarEnvio(userId: string, dataLocal: string): Promise<void>;
   };
+  /** Preferências pessoais do usuário (hoje: e-mail diário de prazos; padrão desligado). */
+  preferencias: {
+    /** Falso se nunca ligou, se o usuário não existe neste escritório ou se está inativo. */
+    alertaEmail(userId: string): Promise<boolean>;
+    /** Liga/desliga. Falso se o usuário não é deste escritório. */
+    definirAlertaEmail(userId: string, ligado: boolean): Promise<boolean>;
+  };
   /** Auditoria: só leitura e registro (sem alterar/excluir). */
   auditoria: {
     registrar(entrada: EntradaAuditoria): Promise<string>;
@@ -2346,6 +2353,7 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
              JOIN users u ON u.id = z.responsavel_id AND u.tenant_id = z.tenant_id
              WHERE z.tenant_id = ? AND z.status <> 'concluido' AND z.data_fatal <= ?
                AND u.ativo = 1 AND u.senha_definida = 1 AND u.perfil IS NOT NULL
+               AND EXISTS (SELECT 1 FROM preferencias_usuario pu WHERE pu.tenant_id = u.tenant_id AND pu.user_id = u.id AND pu.alerta_email = 1)
              ORDER BY u.id`,
           )
           .bind(tid, ate)
@@ -2364,6 +2372,26 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
       },
       async liberarEnvio(userId, dataLocal) {
         await db.prepare("DELETE FROM alertas_enviados WHERE tenant_id = ? AND user_id = ? AND data_local = ?").bind(tid, userId, dataLocal).run();
+      },
+    },
+    preferencias: {
+      async alertaEmail(userId) {
+        const l = await db
+          .prepare("SELECT pu.alerta_email AS v FROM preferencias_usuario pu JOIN users u ON u.id = pu.user_id AND u.tenant_id = pu.tenant_id WHERE pu.tenant_id = ? AND pu.user_id = ? AND u.ativo = 1")
+          .bind(tid, userId)
+          .first<{ v: number }>();
+        return l?.v === 1;
+      },
+      async definirAlertaEmail(userId, ligado) {
+        const r = await db
+          .prepare(
+            `INSERT INTO preferencias_usuario (id, tenant_id, user_id, alerta_email, atualizado_em)
+             SELECT ?, u.tenant_id, u.id, ?, ? FROM users u WHERE u.id = ? AND u.tenant_id = ?
+             ON CONFLICT (tenant_id, user_id) DO UPDATE SET alerta_email = excluded.alerta_email, atualizado_em = excluded.atualizado_em`,
+          )
+          .bind(crypto.randomUUID(), ligado ? 1 : 0, agora(), userId, tid)
+          .run();
+        return r.meta.changes > 0;
       },
     },
     eventos: {

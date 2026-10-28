@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { executarAlertasDiarios, aoAgendar, montarEmailAlerta, enviadorDoAmbiente } from "../src/server/alertas-email";
 import { criarAcessoPlataforma, criarRepositorio } from "../src/server/db/repositorio";
-import type { StatusEscritorio } from "../src/server/db/repositorio";
+import type { Perfil, StatusEscritorio } from "../src/server/db/repositorio";
 import type { EnviadorEmail, MensagemEmail } from "../src/server/email";
 import { prepararBanco } from "./aplicar-migracoes";
 import { chamar, criarEscritorio, criarUsuario, sessaoDeUsuario } from "./ajuda";
@@ -30,6 +30,13 @@ async function novoPrazo(t: string, responsavel: string, data_fatal: string, ext
   const repo = criarRepositorio(env.DB, t);
   const id = await repo.prazos.inserir({ titulo: "Contestação", data_fatal, responsavel_id: responsavel, descricao: null, hora: null, processo_id: null, status: "a_fazer", criado_em: "2026-11-01T00:00:00.000Z", atualizado_em: "2026-11-01T00:00:00.000Z", ...extra } as never);
   return id;
+}
+
+/** Usuário que ligou o aviso por e-mail em "Minha conta" (o padrão é desligado). */
+async function criarOptante(t: string, perfil: Perfil = "socio") {
+  const u = await criarUsuario(t, perfil);
+  await criarRepositorio(env.DB, t).preferencias.definirAlertaEmail(u.id, true);
+  return u;
 }
 
 async function mudarStatusEscritorio(t: string, status: StatusEscritorio) {
@@ -100,9 +107,9 @@ describe("popup: GET /api/alertas/prazos", () => {
 describe("e-mail diário de prazos", () => {
   it("manda um e-mail por usuário, com o link do app e só os prazos dele", async () => {
     const t = await criarEscritorio("banca");
-    const ana = await criarUsuario(t, "advogado");
-    const beto = await criarUsuario(t, "advogado");
-    const sem = await criarUsuario(t, "advogado");
+    const ana = await criarOptante(t, "advogado");
+    const beto = await criarOptante(t, "advogado");
+    const sem = await criarOptante(t, "advogado");
     await novoPrazo(t, ana.id, "2026-11-09", { titulo: "Prazo vencido da Ana" });
     await novoPrazo(t, ana.id, HOJE, { titulo: "Prazo de hoje da Ana" });
     await novoPrazo(t, ana.id, "2026-11-13", { titulo: "Daqui a 3 dias" });
@@ -127,7 +134,7 @@ describe("e-mail diário de prazos", () => {
 
   it("não manda e-mail quando não há prazos nem para prazos concluídos", async () => {
     const t = await criarEscritorio();
-    const u = await criarUsuario(t);
+    const u = await criarOptante(t);
     await novoPrazo(t, u.id, "2026-11-01", { status: "concluido", concluido_em: "2026-11-02T00:00:00.000Z" });
     const f = new EnviadorFalso();
     await executarAlertasDiarios(env.DB, f, URL_APP, MANHA);
@@ -136,7 +143,7 @@ describe("e-mail diário de prazos", () => {
 
   it("não repete o envio se o cron rodar duas vezes no mesmo dia, mas envia no dia seguinte", async () => {
     const t = await criarEscritorio();
-    const u = await criarUsuario(t);
+    const u = await criarOptante(t);
     await novoPrazo(t, u.id, HOJE);
     const f = new EnviadorFalso();
     await executarAlertasDiarios(env.DB, f, URL_APP, MANHA);
@@ -151,11 +158,11 @@ describe("e-mail diário de prazos", () => {
     const susp = await criarEscritorio();
     const canc = await criarEscritorio();
     const ok = await criarEscritorio();
-    const us = await criarUsuario(susp);
-    const uc = await criarUsuario(canc);
-    const inativo = await criarUsuario(ok);
-    const ativo = await criarUsuario(ok);
-    const semSenha = await criarUsuario(ok);
+    const us = await criarOptante(susp);
+    const uc = await criarOptante(canc);
+    const inativo = await criarOptante(ok);
+    const ativo = await criarOptante(ok);
+    const semSenha = await criarOptante(ok);
     for (const [t, u] of [[susp, us], [canc, uc], [ok, inativo], [ok, ativo], [ok, semSenha]] as const) await novoPrazo(t, u.id, HOJE);
     await mudarStatusEscritorio(susp, "suspenso");
     await mudarStatusEscritorio(canc, "cancelado");
@@ -169,9 +176,9 @@ describe("e-mail diário de prazos", () => {
 
   it("escritório em teste recebe; a falha de um envio não derruba os outros e pode ser repetida", async () => {
     const t = await criarEscritorio();
-    const a = await criarUsuario(t);
-    const b = await criarUsuario(t);
-    const c = await criarUsuario(t);
+    const a = await criarOptante(t);
+    const b = await criarOptante(t);
+    const c = await criarOptante(t);
     for (const u of [a, b, c]) await novoPrazo(t, u.id, HOJE);
     const f = new EnviadorFalso();
     f.falharPara.add(b.email);
@@ -197,8 +204,8 @@ describe("e-mail diário de prazos", () => {
   it("o conteúdo traz só dados do próprio escritório", async () => {
     const a = await criarEscritorio();
     const b = await criarEscritorio();
-    const ua = await criarUsuario(a);
-    const ub = await criarUsuario(b);
+    const ua = await criarOptante(a);
+    const ub = await criarOptante(b);
     await novoPrazo(a, ua.id, HOJE, { titulo: "Segredo do escritório A" });
     await novoPrazo(b, ub.id, HOJE, { titulo: "Segredo do escritório B" });
     const f = new EnviadorFalso();
@@ -237,8 +244,10 @@ describe("envio desligado por padrão", () => {
     expect(enviadorDoAmbiente({ ...base, EMAIL_ALERTAS_ATIVO: "false" })).toEqual({ motivo: "desligado" });
     expect(enviadorDoAmbiente({ ...base })).toEqual({ motivo: "desligado" });
     expect("motivo" in enviadorDoAmbiente({ ...base, EMAIL_ALERTAS_ATIVO: "true" })).toBe(true);
-    expect("motivo" in enviadorDoAmbiente({ ...base, EMAIL_ALERTAS_ATIVO: "true", URL_APP: "http://x", EMAIL_REMETENTE: "a@b.c", EMAIL: { send: async () => ({ messageId: "1" }) } })).toBe(true);
-    const ok = enviadorDoAmbiente({ ...base, EMAIL_ALERTAS_ATIVO: "true", URL_APP: "https://dev.app.advocacia.legal/", EMAIL_REMETENTE: "a@b.c", EMAIL: { send: async () => ({ messageId: "1" }) } });
+    expect("motivo" in enviadorDoAmbiente({ ...base, EMAIL_ALERTAS_ATIVO: "true", URL_APP: "http://x", EMAIL_REMETENTE: "a@b.c", RESEND_API_KEY: "re_falsa" })).toBe(true);
+    // Sem a chave do Resend: não liga, mesmo com a chave geral ligada.
+    expect(enviadorDoAmbiente({ ...base, EMAIL_ALERTAS_ATIVO: "true", URL_APP: "https://dev.app.advocacia.legal", EMAIL_REMETENTE: "a@b.c" })).toEqual({ motivo: "RESEND_API_KEY ausente" });
+    const ok = enviadorDoAmbiente({ ...base, EMAIL_ALERTAS_ATIVO: "true", URL_APP: "https://dev.app.advocacia.legal/", EMAIL_REMETENTE: "a@b.c", RESEND_API_KEY: "re_falsa" });
     expect("enviador" in ok && ok.urlApp).toBe("https://dev.app.advocacia.legal");
     expect(await aoAgendar({ ...base, EMAIL_ALERTAS_ATIVO: "false" }, MANHA)).toBeNull();
   });

@@ -1,12 +1,14 @@
 import { FUSO_PADRAO, diferencaDias, hojeEm, somarDias } from "../comum/fuso";
+import { sha256Hex } from "./auth/codificacao";
 import { auditar } from "./auditoria";
 import { criarAcessoAgendado, criarRepositorio } from "./db/repositorio";
 import type { PrazoDetalhado } from "./db/repositorio";
 import type { Env } from "./env";
-import { criarEnviadorCloudflare } from "./email";
+import { ErroEnvioEmail, criarEnviadorResend } from "./email";
 import type { EnviadorEmail } from "./email";
 
-// E-mail diário de prazos (07:00 de São Paulo = 10:00 UTC; ver wrangler.jsonc e docs/EMAIL.md).
+// E-mail diário de prazos (07:00 de São Paulo = 10:00 UTC; ver wrangler.jsonc e docs/EMAIL.md), enviado pelo Resend.
+// Só recebe quem ligou o aviso em "Minha conta" (preferencias_usuario.alerta_email; padrão desligado).
 // Um e-mail por usuário, só se houver prazo não concluído vencido, de hoje ou dos próximos 3 dias em que ele é o responsável.
 
 export const DIAS_A_FRENTE_EMAIL = 3;
@@ -73,7 +75,8 @@ export function montarEmailAlerta(entrada: { nome: string; prazos: PrazoParaEmai
     "",
     `Abrir os prazos: ${link}`,
     "",
-    "Você recebe este resumo porque é responsável por estes prazos na advocacia.legal.",
+    "Você recebe este resumo porque ativou o aviso diário de prazos na sua conta.",
+    `Para parar de receber, desative em Minha conta: ${entrada.urlApp}/minha-conta`,
   ].join("\n");
 
   const html = [
@@ -82,7 +85,7 @@ export function montarEmailAlerta(entrada: { nome: string; prazos: PrazoParaEmai
     ...grupos.filter(([, l]) => l.length).map(([titulo, l]) => `<h3>${escaparHtml(titulo)}</h3><ul>${l.map((p) => `<li>${escaparHtml(linha(p))}</li>`).join("")}</ul>`),
     ...(rodapeResto ? [`<p>${escaparHtml(rodapeResto)}</p>`] : []),
     `<p><a href="${escaparHtml(link)}">Abrir os prazos na advocacia.legal</a></p>`,
-    "<p><small>Você recebe este resumo porque é responsável por estes prazos na advocacia.legal.</small></p>",
+    `<p><small>Você recebe este resumo porque ativou o aviso diário de prazos na sua conta. Para parar de receber, desative em <a href="${escaparHtml(entrada.urlApp)}/minha-conta">Minha conta</a>.</small></p>`,
   ].join("\n");
 
   return { assunto, texto, html };
@@ -99,8 +102,9 @@ export function enviadorDoAmbiente(env: Env): { enviador: EnviadorEmail; urlApp:
   if (env.EMAIL_ALERTAS_ATIVO !== "true") return { motivo: "desligado" };
   const urlApp = urlBaseValida(env.URL_APP);
   if (!urlApp) return { motivo: "URL_APP ausente ou inválida" };
-  if (!env.EMAIL_REMETENTE || !env.EMAIL) return { motivo: "remetente ou binding EMAIL ausente" };
-  return { enviador: criarEnviadorCloudflare(env.EMAIL, env.EMAIL_REMETENTE), urlApp };
+  if (!env.EMAIL_REMETENTE) return { motivo: "EMAIL_REMETENTE ausente" };
+  if (!env.RESEND_API_KEY) return { motivo: "RESEND_API_KEY ausente" };
+  return { enviador: criarEnviadorResend({ chave: env.RESEND_API_KEY, remetente: env.EMAIL_REMETENTE }), urlApp };
 }
 
 /**
@@ -112,17 +116,20 @@ export async function executarAlertasDiarios(db: D1Database, enviador: EnviadorE
   const ate = somarDias(hoje, DIAS_A_FRENTE_EMAIL);
   const r: ResultadoAlertas = { ligado: true, escritorios: 0, enviados: 0, jaEnviados: 0, falhas: 0 };
   const agendado = criarAcessoAgendado(db);
+  let parar = false;
 
   let cursor: string | null = null;
-  for (;;) {
+  while (!parar) {
     const pagina = await agendado.escritoriosEmOperacao(cursor, ESCRITORIOS_POR_PAGINA);
     if (pagina.length === 0) break;
     for (const esc of pagina) {
+      if (parar) break;
       cursor = esc.id;
       r.escritorios += 1;
       try {
         const repo = criarRepositorio(db, esc.id);
         for (const usuario of await repo.alertas.responsaveisComPrazos(ate)) {
+          if (parar) break;
           try {
             const { itens, total } = await repo.prazos.pesquisar({ abertos: true, responsavel: usuario.id, ate, limite: MAX_PRAZOS_BUSCADOS });
             if (total === 0) continue;
@@ -132,7 +139,9 @@ export async function executarAlertasDiarios(db: D1Database, enviador: EnviadorE
             }
             try {
               const email = montarEmailAlerta({ nome: usuario.nome, prazos: itens.slice(0, MAX_PRAZOS_NO_EMAIL), total, hoje, urlApp });
-              await enviador.enviar({ para: usuario.email, assunto: email.assunto, texto: email.texto, html: email.html });
+              // Mesma chave para o mesmo conteúdo no mesmo dia (o Resend não repete o envio por 24 h); se o conteúdo mudar, a chave muda.
+              const idempotencia = `alerta-prazos/${esc.id}/${usuario.id}/${hoje}/${(await sha256Hex(email.texto)).slice(0, 16)}`;
+              await enviador.enviar({ para: usuario.email, assunto: email.assunto, texto: email.texto, html: email.html, idempotencia });
               r.enviados += 1;
             } catch (e) {
               await repo.alertas.liberarEnvio(usuario.id, hoje).catch(() => undefined);
@@ -141,6 +150,8 @@ export async function executarAlertasDiarios(db: D1Database, enviador: EnviadorE
           } catch (e) {
             r.falhas += 1;
             await registrarFalha(db, esc.id, usuario.id, hoje, e);
+            // Chave inválida ou cota esgotada: continuar só geraria mais falhas iguais. Quem ficou sem e-mail tenta de novo na próxima execução.
+            if (e instanceof ErroEnvioEmail && e.interrompeTudo) parar = true;
           }
         }
       } catch (e) {
@@ -155,7 +166,7 @@ export async function executarAlertasDiarios(db: D1Database, enviador: EnviadorE
 }
 
 async function registrarFalha(db: D1Database, tenantId: string, userId: string | null, dataLocal: string, e: unknown): Promise<void> {
-  const codigo = e && typeof e === "object" && "codigo" in e && typeof e.codigo === "string" ? e.codigo : e instanceof Error ? e.name : "desconhecido";
+  const codigo = e instanceof ErroEnvioEmail ? e.codigo : e instanceof Error ? e.name : "desconhecido";
   console.error("alertas-email-falha", codigo);
   try {
     await auditar(db, { tenantId, userId: null, acao: "alerta_email_falha", entidade: "alertas_enviados", entidadeId: userId, detalhes: { data: dataLocal, codigo } });

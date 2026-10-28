@@ -1,12 +1,12 @@
 # DataJud (CNJ): movimentações dos processos
 
-Recurso **ligado só em dev** e **desligado em prod**. Motivo: os termos de uso do CNJ proíbem uso comercial (ver abaixo). Nada de segredo neste arquivo.
+Recurso **ligado em dev e em prod** (decisão do dono em 2026-10-28, para uso particular). Atenção: os termos de uso do CNJ proíbem uso comercial (ver abaixo). Nada de segredo neste arquivo.
 
 ## O que foi verificado (termos de uso v1.2 da API Pública do DataJud)
 
 | Cláusula | O que diz | Efeito aqui |
 | --- | --- | --- |
-| 3.3 e 3.8 | Uso **não comercial** | Recurso desligado em prod (`DATAJUD_ATIVO` = `"false"` no `wrangler.jsonc`). Ligar em prod só depois de decisão do dono (autorização do CNJ ou outro entendimento). |
+| 3.3 e 3.8 | Uso **não comercial** | Ligado em prod por decisão do dono em 2026-10-28 (uso particular). Antes de oferecer a clientes pagantes: obter autorização escrita do CNJ ou parecer jurídico. Para desligar: `DATAJUD_ATIVO` = `"false"` no `wrangler.jsonc`. |
 | 3.13 | Máximo de **120 requisições por minuto** | O sistema faz no máximo 1 por segundo (60 por minuto). |
 | 3.6 | O CNJ **não garante** atualidade nem disponibilidade | A tela avisa que os dados podem chegar com atraso e que a informação oficial é a dos autos. |
 | (escopo) | Só processos **públicos**; sigilosos não aparecem | A tela avisa; "não encontrado" pode significar segredo de justiça. |

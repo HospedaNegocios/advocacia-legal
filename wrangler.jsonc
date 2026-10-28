@@ -24,10 +24,10 @@
       "vars": {
         "AMBIENTE": "dev",
         "URL_APP": "https://dev.app.advocacia.legal",
-        // E-mail diário de prazos (Resend): chave geral DESLIGADA até o Resend estar configurado (docs/EMAIL.md).
+        // E-mail diário de prazos (Resend): chave geral LIGADA no dev (decisão de 2026-10-28; prod segue desligado) (docs/EMAIL.md).
         // Mesmo ligada, só recebe quem ativou em "Minha conta".
-        "EMAIL_ALERTAS_ATIVO": "false",
-        // Remetente SUGERIDO, a confirmar com o dono (precisa ser de um domínio verificado no Resend).
+        "EMAIL_ALERTAS_ATIVO": "true",
+        // Remetente confirmado pelo dono em 2026-10-28 (precisa ser de um domínio verificado no Resend).
         "EMAIL_REMETENTE": "alertas@advocacia.legal",
         // Movimentações pelo DataJud (CNJ): LIGADO só em dev. Também precisa do segredo DATAJUD_CHAVE (workflow configurar-datajud). docs/DATAJUD.md.
         "DATAJUD_ATIVO": "true"

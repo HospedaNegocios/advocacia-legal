@@ -25,8 +25,50 @@ export interface Lancamento {
   processo_id: string | null;
   processo_numero: string | null;
   observacoes: string | null;
+  /** Parcelamento/recorrência: grupo, posição e total (nulos em lançamento avulso). */
+  grupo_id: string | null;
+  grupo_tipo: "parcelamento" | "recorrencia" | null;
+  numero_no_grupo: number | null;
+  grupo_total: number | null;
+  /** Só quando a lista é pedida com saldo (aba Caixa). */
+  saldo_corrido_centavos?: number;
   criado_em: string;
   atualizado_em: string;
+}
+
+export interface TotaisVinculo {
+  receita_aberta_centavos: number;
+  receita_aberta_qtd: number;
+  receita_vencida_centavos: number;
+  receita_paga_centavos: number;
+  despesa_aberta_centavos: number;
+  despesa_aberta_qtd: number;
+  despesa_vencida_centavos: number;
+  despesa_paga_centavos: number;
+}
+
+export interface Recibo {
+  referencia: string;
+  valor_centavos: number;
+  valor_extenso: string;
+  pago_em: string;
+  descricao: string;
+  processo_numero: string | null;
+  pagador: { nome: string; documento: string | null } | null;
+  escritorio: {
+    nome: string;
+    razao_social: string | null;
+    documento: string | null;
+    email_contato: string | null;
+    telefone: string | null;
+    logradouro: string | null;
+    numero: string | null;
+    complemento: string | null;
+    bairro: string | null;
+    cidade: string | null;
+    uf: string | null;
+    cep: string | null;
+  };
 }
 
 export interface ResumoFinanceiro {
@@ -115,4 +157,18 @@ export async function carregarCategorias(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/** "Parcela 2 de 12" / "Ocorrência 2 de 12" (vazio se o lançamento é avulso). */
+export function textoDoGrupo(l: Pick<Lancamento, "grupo_tipo" | "numero_no_grupo" | "grupo_total">): string {
+  if (!l.grupo_tipo || !l.numero_no_grupo || !l.grupo_total) return "";
+  return `${l.grupo_tipo === "parcelamento" ? "Parcela" : "Ocorrência mensal"} ${l.numero_no_grupo} de ${l.grupo_total}`;
+}
+
+const NOMES_MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+/** "2020-03-10" -> "10 de março de 2020". */
+export function dataPorExtenso(data: string): string {
+  const [a, m, d] = data.split("-");
+  const mes = NOMES_MESES[Number(m) - 1];
+  return a && m && d && mes ? `${Number(d)} de ${mes} de ${a}` : data;
 }

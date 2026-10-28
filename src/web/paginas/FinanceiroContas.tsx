@@ -2,8 +2,9 @@ import { Plus, Search, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useSessao } from "../sessao";
-import { Botao, Cartao, Entrada, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Indicador, Selecao, Tabela } from "../ui";
-import type { Coluna } from "../ui";
+import { Botao, Cartao, Entrada, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Indicador, Selecao, SeletorBusca, Tabela } from "../ui";
+import type { Coluna, OpcaoBusca } from "../ui";
+import { buscarClientesTodos, buscarProcessosTodos } from "./buscas";
 import { formatarDataCivil, formatarReais, podeEditarFinanceiro } from "./financeiro-comum";
 import type { Lancamento, RespostaResumo, TipoLancamento } from "./financeiro-comum";
 import { Paginacao, SeloLancamento, useBuscaComAtraso, useLancamentos } from "./financeiro-ui";
@@ -22,6 +23,8 @@ export function FinanceiroContas({ tipo, versao, categorias, aoNovo, aoMudar }: 
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
   const [pagina, setPagina] = useState(1);
+  const [clienteFiltro, setClienteFiltro] = useState<OpcaoBusca | null>(null);
+  const [processoFiltro, setProcessoFiltro] = useState<OpcaoBusca | null>(null);
   const [texto, busca, setTexto] = useBuscaComAtraso(() => setPagina(1));
   const [resumo, setResumo] = useState<RespostaResumo | null>(null);
   const [selecionado, setSelecionado] = useState<{ l: Lancamento; modo: ModoLancamento } | null>(null);
@@ -32,10 +35,12 @@ export function FinanceiroContas({ tipo, versao, categorias, aoNovo, aoMudar }: 
     q.set("ordem", situacao === "aberto" || situacao === "vencido" ? "vencimento" : "vencimento_desc");
     if (busca.trim()) q.set("busca", busca.trim());
     if (categoria) q.set("categoria", categoria);
+    if (clienteFiltro) q.set("cliente_id", clienteFiltro.id);
+    if (processoFiltro) q.set("processo_id", processoFiltro.id);
     if (de) q.set("de", de);
     if (ate) q.set("ate", ate);
     return q.toString();
-  }, [tipo, situacao, busca, categoria, de, ate, pagina]);
+  }, [tipo, situacao, busca, categoria, de, ate, pagina, clienteFiltro, processoFiltro]);
   const { lista, erro, recarregar } = useLancamentos(parametros, versao);
 
   useEffect(() => {
@@ -44,7 +49,7 @@ export function FinanceiroContas({ tipo, versao, categorias, aoNovo, aoMudar }: 
       .catch(() => setResumo(null));
   }, [versao]);
 
-  const filtrando = busca.trim() !== "" || categoria !== "" || de !== "" || ate !== "" || situacao !== "aberto";
+  const filtrando = busca.trim() !== "" || categoria !== "" || clienteFiltro !== null || processoFiltro !== null || de !== "" || ate !== "" || situacao !== "aberto";
   const hoje = lista?.hoje ?? resumo?.hoje ?? "";
   const verbo = receita ? "Registrar recebimento" : "Registrar pagamento";
 
@@ -138,6 +143,10 @@ export function FinanceiroContas({ tipo, versao, categorias, aoNovo, aoMudar }: 
           </Selecao>
           <Entrada rotulo="Vencimento de" type="date" value={de} onChange={(e) => (setDe(e.target.value), setPagina(1))} />
           <Entrada rotulo="Vencimento até" type="date" value={ate} onChange={(e) => (setAte(e.target.value), setPagina(1))} />
+        </div>
+        <div className="barra-filtros barra-filtros-vinculos">
+          <SeletorBusca rotulo="Cliente" valor={clienteFiltro?.id ?? null} rotuloAtual={clienteFiltro?.rotulo ?? ""} buscar={buscarClientesTodos} vazio="Nenhum cliente encontrado." aoMudar={(o) => (setClienteFiltro(o), setPagina(1))} />
+          <SeletorBusca rotulo="Processo" valor={processoFiltro?.id ?? null} rotuloAtual={processoFiltro?.rotulo ?? ""} buscar={buscarProcessosTodos} vazio="Nenhum processo encontrado." ajuda="Busque pelo número ou pelo nome de uma parte." aoMudar={(o) => (setProcessoFiltro(o), setPagina(1))} />
         </div>
         {erro ? (
           <EstadoErro acao={<Botao variante="secundario" onClick={() => void recarregar()}>Tentar de novo</Botao>}>{erro}</EstadoErro>

@@ -6,8 +6,10 @@ import type { LancamentoDetalhado, LinhaLancamento, Repositorio, StatusLancament
 import { exigirPermissao, exigirSessao } from "../sessao";
 import { lerJson, respostaErro } from "../validacao";
 import { dataCivilAceita } from "../validacao-agenda";
-import { ehTipoLancamento, validarLancamento, validarPagamento } from "../validacao-financeiro";
+import { ehTipoLancamento, validarLancamento, validarPagamento, validarRepeticao } from "../validacao-financeiro";
 import { diferencaDias } from "../../comum/fuso";
+import { valorPorExtenso } from "../../comum/extenso";
+import { gerarParcelamento, gerarRecorrencia } from "../../comum/parcelas";
 import { primeiroDiaDoMes, ultimoDiaDoMes, ultimosMeses } from "../../comum/periodo";
 import { hojeDoEscritorio } from "./agenda-comum";
 import { numeroPositivo, registrar, repoDaSessao } from "./comum";
@@ -26,7 +28,7 @@ const MSG_SOMENTE_LEITURA = "Lançamento pago ou cancelado não pode ser alterad
 const MSG_NAO_ABERTO = "Este lançamento não está em aberto.";
 
 /** Situação para a tela: vencido = em aberto com vencimento antes de hoje (dia de São Paulo). */
-function lancamentoPublico(l: LancamentoDetalhado, hoje: string) {
+function lancamentoPublico(l: LancamentoDetalhado, hoje: string, saldoCorrido?: number) {
   const dias = diferencaDias(hoje, l.vencimento);
   const vencido = l.status === "aberto" && dias < 0;
   return {
@@ -48,6 +50,12 @@ function lancamentoPublico(l: LancamentoDetalhado, hoje: string) {
     processo_id: l.processo_id,
     processo_numero: l.processo_numero,
     observacoes: l.observacoes,
+    /** Parcelamento/recorrência: grupo, posição e total (nulos em lançamento avulso). */
+    grupo_id: l.grupo_id,
+    grupo_tipo: l.grupo_tipo,
+    numero_no_grupo: l.numero_no_grupo,
+    grupo_total: l.grupo_total,
+    ...(saldoCorrido !== undefined ? { saldo_corrido_centavos: saldoCorrido } : {}),
     criado_por: l.criado_por,
     criado_em: l.criado_em,
     atualizado_em: l.atualizado_em,
@@ -99,6 +107,38 @@ rotasFinanceiro.get("/resumo", async (c) => {
   return c.json({ ok: true, hoje, periodo: { de, ate }, resumo, serie_mensal: serie });
 });
 
+/** Totais (aberto, vencido e pago) de um cliente ou processo, para as abas "Financeiro" dessas telas. */
+rotasFinanceiro.get("/totais", async (c) => {
+  const clienteId = c.req.query("cliente_id") || undefined;
+  const processoId = c.req.query("processo_id") || undefined;
+  if (!clienteId && !processoId) return respostaErro(c, 400, "Informe o cliente ou o processo.");
+  const hoje = hojeDoEscritorio();
+  const totais = await repoDaSessao(c).lancamentos.totaisDoVinculo({ ...(clienteId ? { cliente_id: clienteId } : {}), ...(processoId ? { processo_id: processoId } : {}) }, hoje);
+  return c.json({ ok: true, hoje, totais });
+});
+
+// ---------- Grupos (parcelamento e recorrência) ----------
+
+rotasFinanceiro.get("/grupos/:grupoId", async (c) => {
+  const repo = repoDaSessao(c);
+  const grupo = await repo.lancamentos.buscarGrupo(c.req.param("grupoId"));
+  if (!grupo) return respostaErro(c, 404, "Grupo não encontrado.");
+  const hoje = hojeDoEscritorio();
+  const r = await repo.lancamentos.pesquisar({ grupo_id: grupo.id, ordem: "vencimento", limite: 100 });
+  return c.json({ ok: true, grupo: { id: grupo.id, tipo: grupo.tipo, total_itens: grupo.total_itens }, lancamentos: r.itens.map((l) => lancamentoPublico(l, hoje)) });
+});
+
+// Ação explícita: cancela só o que ainda está em aberto no grupo. O que já foi pago ou cancelado não muda.
+rotasFinanceiro.post("/grupos/:grupoId/cancelar-abertas", async (c) => {
+  const repo = repoDaSessao(c);
+  const grupo = await repo.lancamentos.buscarGrupo(c.req.param("grupoId"));
+  if (!grupo) return respostaErro(c, 404, "Grupo não encontrado.");
+  const qtd = await repo.lancamentos.cancelarAbertosDoGrupo(grupo.id);
+  if (qtd === 0) return respostaErro(c, 409, "Não há parcelas em aberto neste grupo.");
+  await registrar(c, "lancamento_grupo_cancelado", "lancamentos_grupos", grupo.id, { quantidade: qtd });
+  return c.json({ ok: true, canceladas: qtd });
+});
+
 // ---------- Lista e cadastro ----------
 
 rotasFinanceiro.get("/", async (c) => {
@@ -127,21 +167,39 @@ rotasFinanceiro.get("/", async (c) => {
     ...(datas.pago_ate ? { pago_ate: datas.pago_ate } : {}),
     ...(q("cliente_id") ? { cliente_id: q("cliente_id") as string } : {}),
     ...(q("processo_id") ? { processo_id: q("processo_id") as string } : {}),
+    ...(q("grupo_id") ? { grupo_id: q("grupo_id") as string } : {}),
     ...(q("categoria") ? { categoria: q("categoria") as string } : {}),
     busca: c.req.query("busca") ?? "",
     ...(ordem ? { ordem: ordem as "vencimento" | "vencimento_desc" | "pago_em_desc" } : {}),
     limite: porPagina,
     deslocamento: (pagina - 1) * porPagina,
   });
-  return c.json({ ok: true, hoje, lancamentos: r.itens.map((l) => lancamentoPublico(l, hoje)), total: r.total, pagina, por_pagina: porPagina });
+  // Saldo corrido do caixa (só das movimentações pagas da página): acumulado do escritório inteiro, sem filtros.
+  const saldos = c.req.query("com_saldo") === "1" ? await repoDaSessao(c).lancamentos.saldosCorridos(r.itens.filter((l) => l.status === "pago").map((l) => l.id)) : null;
+  return c.json({ ok: true, hoje, lancamentos: r.itens.map((l) => lancamentoPublico(l, hoje, saldos?.get(l.id))), total: r.total, pagina, por_pagina: porPagina });
 });
 
 rotasFinanceiro.post("/", async (c) => {
-  const v = validarLancamento(await lerJson(c), true);
+  const corpo = await lerJson(c);
+  const v = validarLancamento(corpo, true);
   if (!v.ok) return respostaErro(c, 400, v.erro);
+  const rep = validarRepeticao(corpo, v.dados);
+  if (!rep.ok) return respostaErro(c, 400, rep.erro);
   const repo = repoDaSessao(c);
   const falha = await conferirVinculos(c, repo, v.dados.cliente_id, v.dados.processo_id);
   if (falha) return falha;
+  if (rep.modo !== "unico") {
+    // Parcelamento (valor = total dividido) ou recorrência (valor = de cada ocorrência): lançamentos independentes em aberto, ligados por um grupo.
+    const itens = (rep.modo === "parcelamento" ? gerarParcelamento : gerarRecorrencia)(v.dados.descricao, v.dados.valor_centavos, v.dados.vencimento, rep.quantidade);
+    const { grupoId, ids } = await repo.lancamentos.inserirGrupo(
+      { tipo: rep.modo, tipoLancamento: v.tipo as "receita" | "despesa", categoria: v.dados.categoria, cliente_id: v.dados.cliente_id, processo_id: v.dados.processo_id, observacoes: v.dados.observacoes, criado_por: c.get("sessao").usuario.id },
+      itens.map((i) => ({ ...v.dados, descricao: i.descricao, valor_centavos: i.valor_centavos, vencimento: i.vencimento, numero_no_grupo: i.numero })),
+    );
+    // Auditoria sem descrição nem valores: só o grupo, o tipo e a quantidade.
+    await registrar(c, "lancamento_grupo_criado", "lancamentos_grupos", grupoId, { tipo: v.tipo, grupo: rep.modo, quantidade: rep.quantidade });
+    const criados = (await Promise.all(ids.map((id) => publicoPorId(repo, id)))).filter((x) => x !== null);
+    return c.json({ ok: true, grupo_id: grupoId, lancamento: criados[0], lancamentos: criados }, 201);
+  }
   const id = await repo.lancamentos.inserir({ ...v.dados, tipo: v.tipo as "receita" | "despesa", status: "aberto", criado_por: c.get("sessao").usuario.id });
   // Auditoria sem descrição nem valores: só o tipo e a situação.
   await registrar(c, "lancamento_criado", "lancamentos", id, { tipo: v.tipo, status_para: "aberto" });
@@ -198,6 +256,44 @@ async function mudarSituacao(c: Ctx, de: StatusLancamento, para: StatusLancament
 rotasFinanceiro.post("/:id/estornar", (c) => mudarSituacao(c, "pago", "aberto", "lancamento_estornado", "Só é possível estornar um lançamento pago.", (r, id) => r.lancamentos.estornar(id)));
 rotasFinanceiro.post("/:id/cancelar", (c) => mudarSituacao(c, "aberto", "cancelado", "lancamento_cancelado", "Só é possível cancelar um lançamento em aberto. Se já foi pago, estorne o pagamento antes.", (r, id) => r.lancamentos.cancelar(id)));
 rotasFinanceiro.post("/:id/reabrir", (c) => mudarSituacao(c, "cancelado", "aberto", "lancamento_reaberto", "Só é possível reabrir um lançamento cancelado.", (r, id) => r.lancamentos.reabrir(id)));
+
+// Recibo de uma receita PAGA: só os dados (a tela monta a página para imprimir). Quem pode ler o financeiro pode gerar.
+rotasFinanceiro.get("/:id/recibo", async (c) => {
+  const repo = repoDaSessao(c);
+  const l = await repo.lancamentos.buscarDetalhado(c.req.param("id"));
+  if (!l) return respostaErro(c, 404, "Lançamento não encontrado.");
+  if (l.tipo !== "receita") return respostaErro(c, 409, "Só é possível emitir recibo de uma receita.");
+  if (l.status !== "pago" || !l.pago_em || l.valor_pago_centavos === null) return respostaErro(c, 409, "O recibo só pode ser emitido depois que o recebimento é registrado.");
+  const [escritorio, perfil, cliente] = await Promise.all([repo.buscarMeuEscritorio(), repo.perfil.buscar(), l.cliente_id ? repo.clientes.buscar(l.cliente_id) : Promise.resolve(null)]);
+  // Auditoria só com ids.
+  await registrar(c, "recibo_gerado", "lancamentos", l.id);
+  return c.json({
+    ok: true,
+    recibo: {
+      referencia: l.id.slice(0, 8).toUpperCase(),
+      valor_centavos: l.valor_pago_centavos,
+      valor_extenso: valorPorExtenso(l.valor_pago_centavos),
+      pago_em: l.pago_em,
+      descricao: l.descricao,
+      processo_numero: l.processo_numero,
+      pagador: cliente ? { nome: cliente.nome, documento: cliente.documento } : null,
+      escritorio: {
+        nome: escritorio?.nome ?? "",
+        razao_social: perfil?.razao_social ?? null,
+        documento: perfil?.documento ?? null,
+        email_contato: perfil?.email_contato ?? null,
+        telefone: perfil?.telefone ?? null,
+        logradouro: perfil?.logradouro ?? null,
+        numero: perfil?.numero ?? null,
+        complemento: perfil?.complemento ?? null,
+        bairro: perfil?.bairro ?? null,
+        cidade: perfil?.cidade ?? null,
+        uf: perfil?.uf ?? null,
+        cep: perfil?.cep ?? null,
+      },
+    },
+  });
+});
 
 // Apagar: definitivo, só o sócio, em qualquer situação. Fica registrado na auditoria (sem descrição nem valores).
 rotasFinanceiro.delete("/:id", async (c) => {

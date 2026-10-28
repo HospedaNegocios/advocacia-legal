@@ -7,6 +7,7 @@ import { Abas, AreaTexto, Aviso, Botao, CabecalhoPagina, Cartao, CampoMarcar, Co
 import { AbaDocumentos, Dado } from "./abas-comuns";
 import { AbaAgenda, AbaPrazos } from "./AbasAgendaProcesso";
 import { AbaIntimacoes } from "./AbaIntimacoes";
+import { AbaFinanceiro } from "./FinanceiroVinculado";
 import { BotaoAndamentoPortal, CartaoPortalProcesso } from "./PortalGestao";
 import { diaBr, hojeIso } from "./clientes-comum";
 import type { Cliente } from "./clientes-comum";
@@ -626,6 +627,7 @@ export function ProcessoDetalhe({ id }: { id: string }) {
             { id: "prazos", rotulo: "Prazos", conteudo: <AbaPrazos p={p} /> },
             { id: "agenda", rotulo: "Agenda", conteudo: <AbaAgenda p={p} /> },
             { id: "intimacoes", rotulo: "Intimações", conteudo: <AbaIntimacoes p={p} /> },
+            ...(eu?.permissoes.financeiro && eu.permissoes.financeiro !== "nenhum" ? [{ id: "financeiro", rotulo: "Financeiro", conteudo: <AbaFinanceiro processo={{ id: p.id, rotulo: cnjFormatado(p.numero_cnj) }} ativo={p.ativo} /> }] : []),
             { id: "documentos", rotulo: "Documentos", conteudo: <AbaDocumentos base={`/api/processos/${p.id}`} editavel={p.ativo} ehSocio={ehSocio} texto={{ vazio: "Guarde aqui petições, decisões e outros documentos deste processo.", lista: "Documentos do processo" }} /> },
           ]}
         />

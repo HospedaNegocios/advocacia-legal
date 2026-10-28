@@ -2,6 +2,7 @@ import { TIPOS_LANCAMENTO } from "./db/repositorio";
 import type { DadosLancamento, TipoLancamento } from "./db/repositorio";
 import { textoOpcional } from "./validacao";
 import { dataCivilAceita } from "./validacao-agenda";
+import { DESCRICAO_MAXIMA_GRUPO, PARCELAS_MAXIMO, PARCELAS_MINIMO, quantidadeValida } from "../comum/parcelas";
 
 /** Teto técnico de um lançamento: R$ 999.999.999,99 (em centavos). Evita estouro nas somas e erro de digitação. */
 export const VALOR_MAXIMO_CENTAVOS = 99_999_999_999;
@@ -63,4 +64,22 @@ export function validarPagamento(corpo: Record<string, unknown>, hoje: string): 
     valor = corpo.valor_pago_centavos;
   }
   return { ok: true, pago_em: corpo.pago_em, valor_pago_centavos: valor };
+}
+
+export type ResultadoRepeticao = { ok: true; modo: "unico" } | { ok: true; modo: "parcelamento" | "recorrencia"; quantidade: number } | { ok: false; erro: string };
+
+/**
+ * Lançamento avulso, parcelado (`parcelas`) ou recorrente (`repetir_meses`). Os dois juntos são recusados.
+ * Para grupos, a descrição precisa caber com o sufixo " (N/N)" e, no parcelamento, o total precisa ter ao menos 1 centavo por parcela.
+ */
+export function validarRepeticao(corpo: Record<string, unknown>, dados: DadosLancamento): ResultadoRepeticao {
+  const temParcelas = corpo.parcelas !== undefined && corpo.parcelas !== null;
+  const temRepetir = corpo.repetir_meses !== undefined && corpo.repetir_meses !== null;
+  if (!temParcelas && !temRepetir) return { ok: true, modo: "unico" };
+  if (temParcelas && temRepetir) return { ok: false, erro: "Escolha parcelar ou repetir mensalmente, não os dois." };
+  const quantidade = temParcelas ? corpo.parcelas : corpo.repetir_meses;
+  if (!quantidadeValida(quantidade)) return { ok: false, erro: `Informe de ${PARCELAS_MINIMO} a ${PARCELAS_MAXIMO} ${temParcelas ? "parcelas" : "meses"}.` };
+  if (dados.descricao.length > DESCRICAO_MAXIMA_GRUPO) return { ok: false, erro: `Com parcelas ou repetição, a descrição pode ter no máximo ${DESCRICAO_MAXIMA_GRUPO} caracteres (o sistema acrescenta o número, como "(1/12)").` };
+  if (temParcelas && dados.valor_centavos < quantidade) return { ok: false, erro: "O valor total é pequeno demais para esse número de parcelas." };
+  return { ok: true, modo: temParcelas ? "parcelamento" : "recorrencia", quantidade };
 }

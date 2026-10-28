@@ -35,6 +35,22 @@ jobs:
         run: npx wrangler d1 migrations apply DB --remote --env dev
       - name: Publicar Worker (dev)
         run: npx wrangler deploy --env dev
+      # O workflow configurar-datajud só aparece em Actions quando está na main (branch padrão).
+      # Por isso o deploy do dev também grava a chave do DataJud, se o GitHub Secret DATAJUD_CHAVE existir.
+      - name: Gravar DATAJUD_CHAVE (dev), se existir o GitHub Secret
+        env:
+          CHAVE_DATAJUD: ${{ secrets.DATAJUD_CHAVE }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${CHAVE_DATAJUD:-}" ]; then
+            echo "Sem GitHub Secret DATAJUD_CHAVE: o DataJud continua desligado no dev."
+            exit 0
+          fi
+          echo "::add-mask::$CHAVE_DATAJUD"
+          # A chave vai da variável direto para a entrada padrão do wrangler, sem echo nem argumento.
+          printf '%s' "$CHAVE_DATAJUD" | npx wrangler secret put DATAJUD_CHAVE --env dev > /dev/null
+          echo "DATAJUD_CHAVE gravada no dev."
 
   deploy-prod:
     if: github.ref == 'refs/heads/main'

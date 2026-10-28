@@ -29,7 +29,7 @@ A chave de acesso é **pública**, publicada pelo CNJ na wiki oficial do DataJud
 ## Como configurar (dev)
 
 1. No GitHub: Settings > Secrets and variables > Actions > New repository secret, nome `DATAJUD_CHAVE`, valor = a **chave pública copiada da wiki oficial do DataJud** (https://datajud-wiki.cnj.jus.br/api-publica/acesso).
-2. Depois do deploy da `develop`, rodar no GitHub Actions o workflow **configurar-datajud** (ambiente `dev`). Ele grava o segredo do Worker sem mostrar o valor e não sobrescreve um segredo existente, a menos que se marque "substituir" (use ao trocar a chave).
+2. No dev, nada mais: a cada deploy da `develop`, o workflow Deploy grava o segredo `DATAJUD_CHAVE` no Worker de dev (sem mostrar o valor) se o GitHub Secret existir. Para trocar a chave, atualize o GitHub Secret e faça um novo deploy. O workflow **configurar-datajud** faz o mesmo sob demanda, mas só aparece em Actions quando estiver na `main` (branch padrão do repositório).
 3. Sem a chave, o recurso fica desligado mesmo com `DATAJUD_ATIVO` = `"true"`. Se a chave deixar de valer, o DataJud responde 401/403: a situação do processo aparece como "consulta recusada" e a rodada do Cron para. Basta atualizar o GitHub Secret e rodar o workflow com "substituir".
 
 ## O que NÃO foi confirmado

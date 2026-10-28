@@ -3,8 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ErroApi, api } from "../api";
 import { hojeEm } from "../../comum/fuso";
 import { primeiroDiaDoMes, ultimoDiaDoMes } from "../../comum/periodo";
-import { Botao, Cartao, Entrada, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Indicador, Selo, Tabela } from "../ui";
-import type { Coluna } from "../ui";
+import { Botao, Cartao, Entrada, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Indicador, Selo, SeletorBusca, Tabela } from "../ui";
+import type { Coluna, OpcaoBusca } from "../ui";
+import { buscarClientesTodos, buscarProcessosTodos } from "./buscas";
 import { formatarDataCivil, formatarReais } from "./financeiro-comum";
 import type { Lancamento, RespostaResumo } from "./financeiro-comum";
 import { Paginacao, useLancamentos } from "./financeiro-ui";
@@ -18,12 +19,22 @@ export function FinanceiroCaixa({ versao, categorias, aoMudar }: { versao: numbe
   const [de, setDe] = useState(() => primeiroDiaDoMes(hojeEm()));
   const [ate, setAte] = useState(() => ultimoDiaDoMes(hojeEm()));
   const [pagina, setPagina] = useState(1);
+  const [clienteFiltro, setClienteFiltro] = useState<OpcaoBusca | null>(null);
+  const [processoFiltro, setProcessoFiltro] = useState<OpcaoBusca | null>(null);
   const [resumo, setResumo] = useState<RespostaResumo | null>(null);
   const [erroResumo, setErroResumo] = useState("");
   const [selecionado, setSelecionado] = useState<{ l: Lancamento; modo: ModoLancamento } | null>(null);
 
   const periodoValido = de !== "" && ate !== "" && de <= ate;
-  const parametros = useMemo(() => new URLSearchParams({ status: "pago", ordem: "pago_em_desc", pago_de: de, pago_ate: ate, pagina: String(pagina), por_pagina: String(POR_PAGINA) }).toString(), [de, ate, pagina]);
+  // O saldo corrido é do escritório inteiro: com filtro de cliente ou processo ele deixaria de fazer sentido, então a coluna some.
+  const filtrando = clienteFiltro !== null || processoFiltro !== null;
+  const parametros = useMemo(() => {
+    const q = new URLSearchParams({ status: "pago", ordem: "pago_em_desc", pago_de: de, pago_ate: ate, pagina: String(pagina), por_pagina: String(POR_PAGINA) });
+    if (clienteFiltro) q.set("cliente_id", clienteFiltro.id);
+    if (processoFiltro) q.set("processo_id", processoFiltro.id);
+    if (!clienteFiltro && !processoFiltro) q.set("com_saldo", "1");
+    return q.toString();
+  }, [de, ate, pagina, clienteFiltro, processoFiltro]);
   const { lista, erro, recarregar } = useLancamentos(periodoValido ? parametros : null, versao);
 
   const carregarResumo = useCallback(async () => {
@@ -94,6 +105,17 @@ export function FinanceiroCaixa({ versao, categorias, aoMudar }: { versao: numbe
         </>
       ),
     },
+    ...(filtrando
+      ? []
+      : [
+          {
+            chave: "saldo",
+            titulo: "Saldo",
+            numerica: true,
+            nowrap: true,
+            render: (l: Lancamento) => (l.saldo_corrido_centavos === undefined ? "—" : formatarReais(l.saldo_corrido_centavos)),
+          },
+        ]),
     {
       chave: "acoes",
       titulo: "Ações",
@@ -123,6 +145,15 @@ export function FinanceiroCaixa({ versao, categorias, aoMudar }: { versao: numbe
             </Botao>
           </div>
         </div>
+        <div className="barra-filtros barra-filtros-vinculos">
+          <SeletorBusca rotulo="Cliente" valor={clienteFiltro?.id ?? null} rotuloAtual={clienteFiltro?.rotulo ?? ""} buscar={buscarClientesTodos} vazio="Nenhum cliente encontrado." aoMudar={(o) => (setClienteFiltro(o), setPagina(1))} />
+          <SeletorBusca rotulo="Processo" valor={processoFiltro?.id ?? null} rotuloAtual={processoFiltro?.rotulo ?? ""} buscar={buscarProcessosTodos} vazio="Nenhum processo encontrado." ajuda="Busque pelo número ou pelo nome de uma parte." aoMudar={(o) => (setProcessoFiltro(o), setPagina(1))} />
+        </div>
+        {filtrando && (
+          <p className="texto-pequeno" style={{ margin: 0, padding: "0 var(--e-4) var(--e-4)" }}>
+            Filtrando por cliente ou processo: a lista mostra só as movimentações dele. Os indicadores acima continuam somando o escritório inteiro e o saldo corrido fica oculto.
+          </p>
+        )}
       </Cartao>
       <section aria-label="Resumo do caixa" className="grade grade-kpi kpi-fin">
         {r ? (
@@ -137,7 +168,7 @@ export function FinanceiroCaixa({ versao, categorias, aoMudar }: { versao: numbe
         )}
       </section>
       {erroResumo && <EstadoErro acao={<Botao variante="secundario" onClick={() => void carregarResumo()}>Tentar de novo</Botao>}>{erroResumo}</EstadoErro>}
-      <Cartao semPadding titulo="Movimentações" subtitulo="Mais recentes primeiro.">
+      <Cartao semPadding titulo="Movimentações" subtitulo={filtrando ? "Mais recentes primeiro." : "Mais recentes primeiro. O saldo mostra quanto havia em caixa depois de cada movimentação."}>
         {!periodoValido ? (
           <EstadoVazio icone={Search} titulo="Escolha um período">
             Informe a data inicial e a data final, com o início antes do fim.

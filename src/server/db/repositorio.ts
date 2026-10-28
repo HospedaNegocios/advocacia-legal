@@ -441,6 +441,38 @@ export interface LinhaLancamento {
   criado_por: string | null;
   criado_em: string;
   atualizado_em: string;
+  /** Parcelamento/recorrência: grupo e posição (1 a N); nulos em lançamento avulso. */
+  grupo_id: string | null;
+  numero_no_grupo: number | null;
+}
+
+export const TIPOS_GRUPO_LANCAMENTO = ["parcelamento", "recorrencia"] as const;
+export type TipoGrupoLancamento = (typeof TIPOS_GRUPO_LANCAMENTO)[number];
+
+export interface LinhaGrupoLancamento {
+  id: string;
+  tenant_id: string;
+  tipo: TipoGrupoLancamento;
+  total_itens: number;
+  criado_por: string | null;
+  criado_em: string;
+}
+
+/** Um item de grupo a gravar: os campos do lançamento + a posição. */
+export interface ItemNovoDeGrupo extends DadosLancamento {
+  numero_no_grupo: number;
+}
+
+/** Totais de um cliente ou processo, em centavos (aberto = previsto; pago = valor efetivamente pago/recebido). Cancelado não conta. */
+export interface TotaisVinculo {
+  receita_aberta_centavos: number;
+  receita_aberta_qtd: number;
+  receita_vencida_centavos: number;
+  receita_paga_centavos: number;
+  despesa_aberta_centavos: number;
+  despesa_aberta_qtd: number;
+  despesa_vencida_centavos: number;
+  despesa_paga_centavos: number;
 }
 
 /** Campos que o escritório grava ao criar ou editar (tipo só na criação; status e pagamento têm rotas próprias). */
@@ -458,6 +490,8 @@ export interface DadosLancamento {
 export interface LancamentoDetalhado extends LinhaLancamento {
   cliente_nome: string | null;
   processo_numero: string | null;
+  grupo_tipo: TipoGrupoLancamento | null;
+  grupo_total: number | null;
 }
 
 export interface FiltroLancamentos {
@@ -473,6 +507,7 @@ export interface FiltroLancamentos {
   pago_ate?: string;
   cliente_id?: string;
   processo_id?: string;
+  grupo_id?: string;
   categoria?: string;
   busca?: string;
   ordem?: "vencimento" | "vencimento_desc" | "pago_em_desc";
@@ -856,7 +891,7 @@ const TABELAS: Readonly<Record<TabelaDoEscritorio, ConfigTabela>> = {
     imutavel: false,
   },
   lancamentos: {
-    inserivel: ["id", "tipo", "descricao_busca", "status", "pago_em", "valor_pago_centavos", "criado_por", "criado_em", "atualizado_em", ...CAMPOS_LANCAMENTO],
+    inserivel: ["id", "tipo", "descricao_busca", "status", "pago_em", "valor_pago_centavos", "criado_por", "criado_em", "atualizado_em", "grupo_id", "numero_no_grupo", ...CAMPOS_LANCAMENTO],
     atualizavel: ["descricao_busca", ...CAMPOS_LANCAMENTO],
     temAtualizadoEm: true,
     imutavel: false,
@@ -887,7 +922,7 @@ const COLUNAS_FILTRO: Readonly<Record<TabelaDoEscritorio, readonly string[]>> = 
   prazos: ["id", "status", "responsavel_id", "processo_id"],
   eventos_agenda: ["id", "tipo", "processo_id", "cliente_id", "criado_por"],
   eventos_participantes: ["id", "evento_id", "user_id"],
-  lancamentos: ["id", "tipo", "status", "cliente_id", "processo_id"],
+  lancamentos: ["id", "tipo", "status", "cliente_id", "processo_id", "grupo_id"],
   calendario_dias: ["id", "data", "tipo"],
 };
 
@@ -1066,6 +1101,21 @@ export interface Repositorio {
     cancelar(id: string): Promise<boolean>;
     /** Cancelado → aberto. */
     reabrir(id: string): Promise<boolean>;
+    /**
+     * Grava o grupo e todos os itens de uma vez (um único lote: tudo ou nada). Devolve o id do grupo e os ids dos itens, na ordem.
+     * Cliente e processo precisam ter sido conferidos pela rota; o banco ainda recusa vínculo de outro escritório.
+     */
+    inserirGrupo(grupo: { tipo: TipoGrupoLancamento; tipoLancamento: TipoLancamento; categoria: string | null; cliente_id: string | null; processo_id: string | null; observacoes: string | null; criado_por: string }, itens: ItemNovoDeGrupo[]): Promise<{ grupoId: string; ids: string[] }>;
+    buscarGrupo(grupoId: string): Promise<LinhaGrupoLancamento | null>;
+    /** Cancela só as parcelas/ocorrências ainda em aberto do grupo; devolve quantas. Pagas e já canceladas não mudam. */
+    cancelarAbertosDoGrupo(grupoId: string): Promise<number>;
+    /** Totais de lançamentos de um cliente e/ou processo (pelo menos um dos dois). `hoje` AAAA-MM-DD define o vencido. */
+    totaisDoVinculo(vinculo: { cliente_id?: string; processo_id?: string }, hoje: string): Promise<TotaisVinculo>;
+    /**
+     * Saldo corrido do caixa APÓS cada movimentação paga informada: soma (recebido − pago) de TODAS as movimentações pagas do
+     * escritório até aquela linha, na ordem data do pagamento, criação, id (inversa da ordem da lista, que é decrescente).
+     */
+    saldosCorridos(ids: string[]): Promise<Map<string, number>>;
   };
   /**
    * Intimações do DJEN. A coleta (Cron ou "Buscar agora") entra por `inserirDaColeta`; o usuário só lê, marca como lida e vincula.
@@ -1732,6 +1782,10 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
           condicoes.push("l.processo_id = ?");
           params.push(filtro.processo_id);
         }
+        if (filtro.grupo_id) {
+          condicoes.push("l.grupo_id = ?");
+          params.push(filtro.grupo_id);
+        }
         if (filtro.categoria) {
           condicoes.push("l.categoria = ?");
           params.push(filtro.categoria);
@@ -1753,9 +1807,10 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
         const [lista, total] = await Promise.all([
           db
             .prepare(
-              `SELECT l.*, c.nome AS cliente_nome, p.numero_cnj AS processo_numero FROM lancamentos l
+              `SELECT l.*, c.nome AS cliente_nome, p.numero_cnj AS processo_numero, g.tipo AS grupo_tipo, g.total_itens AS grupo_total FROM lancamentos l
                LEFT JOIN clientes c ON c.id = l.cliente_id AND c.tenant_id = l.tenant_id
                LEFT JOIN processos p ON p.id = l.processo_id AND p.tenant_id = l.tenant_id
+               LEFT JOIN lancamentos_grupos g ON g.id = l.grupo_id AND g.tenant_id = l.tenant_id
                WHERE ${onde} ORDER BY ${ordem} LIMIT ? OFFSET ?`,
             )
             .bind(...params, limite, deslocamento)
@@ -1767,9 +1822,10 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
       async buscarDetalhado(id) {
         const linha = await db
           .prepare(
-            `SELECT l.*, c.nome AS cliente_nome, p.numero_cnj AS processo_numero FROM lancamentos l
+            `SELECT l.*, c.nome AS cliente_nome, p.numero_cnj AS processo_numero, g.tipo AS grupo_tipo, g.total_itens AS grupo_total FROM lancamentos l
              LEFT JOIN clientes c ON c.id = l.cliente_id AND c.tenant_id = l.tenant_id
              LEFT JOIN processos p ON p.id = l.processo_id AND p.tenant_id = l.tenant_id
+             LEFT JOIN lancamentos_grupos g ON g.id = l.grupo_id AND g.tenant_id = l.tenant_id
              WHERE l.id = ? AND l.tenant_id = ?`,
           )
           .bind(id, tid)
@@ -1869,6 +1925,95 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
           .bind(agora(), id, tid)
           .run();
         return r.meta.changes > 0;
+      },
+      async inserirGrupo(grupo, itens) {
+        const ts = agora();
+        const grupoId = crypto.randomUUID();
+        const comandos: D1PreparedStatement[] = [
+          db.prepare("INSERT INTO lancamentos_grupos (id, tenant_id, tipo, total_itens, criado_por, criado_em) VALUES (?, ?, ?, ?, ?, ?)").bind(grupoId, tid, grupo.tipo, itens.length, grupo.criado_por, ts),
+        ];
+        const ids: string[] = [];
+        for (const i of itens) {
+          const id = crypto.randomUUID();
+          ids.push(id);
+          comandos.push(
+            db
+              .prepare(
+                `INSERT INTO lancamentos (id, tenant_id, tipo, descricao, descricao_busca, categoria, valor_centavos, vencimento, status, cliente_id, processo_id, observacoes, criado_por, criado_em, atualizado_em, grupo_id, numero_no_grupo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'aberto', ?, ?, ?, ?, ?, ?, ?, ?)`,
+              )
+              .bind(id, tid, grupo.tipoLancamento, i.descricao, normalizarBusca(i.descricao), grupo.categoria, i.valor_centavos, i.vencimento, grupo.cliente_id, grupo.processo_id, grupo.observacoes, grupo.criado_por, ts, ts, grupoId, i.numero_no_grupo),
+          );
+        }
+        await db.batch(comandos);
+        return { grupoId, ids };
+      },
+      async buscarGrupo(grupoId) {
+        return (await db.prepare("SELECT * FROM lancamentos_grupos WHERE id = ? AND tenant_id = ?").bind(grupoId, tid).first<LinhaGrupoLancamento>()) ?? null;
+      },
+      async cancelarAbertosDoGrupo(grupoId) {
+        const r = await db
+          .prepare("UPDATE lancamentos SET status = 'cancelado', atualizado_em = ? WHERE tenant_id = ? AND grupo_id = ? AND status = 'aberto'")
+          .bind(agora(), tid, grupoId)
+          .run();
+        return r.meta.changes;
+      },
+      async totaisDoVinculo(vinculo, hoje) {
+        const condicoes = ["tenant_id = ?"];
+        const params: Valor[] = [tid];
+        if (vinculo.cliente_id) {
+          condicoes.push("cliente_id = ?");
+          params.push(vinculo.cliente_id);
+        }
+        if (vinculo.processo_id) {
+          condicoes.push("processo_id = ?");
+          params.push(vinculo.processo_id);
+        }
+        if (condicoes.length === 1) throw new Error("Informe cliente ou processo.");
+        const l = await db
+          .prepare(
+            `SELECT
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'aberto' THEN valor_centavos END), 0) AS r_aberta,
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'aberto' THEN 1 END), 0) AS r_aberta_qtd,
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'aberto' AND vencimento < ? THEN valor_centavos END), 0) AS r_vencida,
+               COALESCE(SUM(CASE WHEN tipo = 'receita' AND status = 'pago' THEN valor_pago_centavos END), 0) AS r_paga,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'aberto' THEN valor_centavos END), 0) AS d_aberta,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'aberto' THEN 1 END), 0) AS d_aberta_qtd,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'aberto' AND vencimento < ? THEN valor_centavos END), 0) AS d_vencida,
+               COALESCE(SUM(CASE WHEN tipo = 'despesa' AND status = 'pago' THEN valor_pago_centavos END), 0) AS d_paga
+             FROM lancamentos WHERE ${condicoes.join(" AND ")}`,
+          )
+          .bind(hoje, hoje, ...params)
+          .first<Record<string, number>>();
+        const n = (k: string) => l?.[k] ?? 0;
+        return {
+          receita_aberta_centavos: n("r_aberta"),
+          receita_aberta_qtd: n("r_aberta_qtd"),
+          receita_vencida_centavos: n("r_vencida"),
+          receita_paga_centavos: n("r_paga"),
+          despesa_aberta_centavos: n("d_aberta"),
+          despesa_aberta_qtd: n("d_aberta_qtd"),
+          despesa_vencida_centavos: n("d_vencida"),
+          despesa_paga_centavos: n("d_paga"),
+        };
+      },
+      async saldosCorridos(ids) {
+        const saida = new Map<string, number>();
+        if (ids.length === 0) return saida;
+        // Ids em JSON (um só parâmetro; o D1 limita a 100 parâmetros por consulta).
+        const { results } = await db
+          .prepare(
+            `WITH mov AS (
+               SELECT id, SUM(CASE WHEN tipo = 'receita' THEN valor_pago_centavos ELSE -valor_pago_centavos END)
+                          OVER (ORDER BY pago_em, criado_em, id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo
+               FROM lancamentos WHERE tenant_id = ? AND status = 'pago'
+             )
+             SELECT id, saldo FROM mov WHERE id IN (SELECT value FROM json_each(?))`,
+          )
+          .bind(tid, JSON.stringify(ids))
+          .all<{ id: string; saldo: number }>();
+        for (const r of results) saida.set(r.id, r.saldo);
+        return saida;
       },
     },
     intimacoes: {

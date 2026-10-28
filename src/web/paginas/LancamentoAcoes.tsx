@@ -1,16 +1,17 @@
-import { Ban, CircleCheck, Pencil, RotateCcw, Trash2, Undo2 } from "lucide-react";
+import { Ban, CircleCheck, Pencil, Receipt, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { ErroApi, api } from "../api";
 import { centavosParaMoeda, mascaraMoeda, moedaParaCentavos } from "../mascaras";
+import { navegar } from "../roteador";
 import { useSessao } from "../sessao";
 import { Aviso, Botao, Confirmar, Entrada, Formulario, Modal, useToast } from "../ui";
-import { formatarDataCivil, formatarReais, podeEditarFinanceiro, rotuloProcesso } from "./financeiro-comum";
+import { formatarDataCivil, formatarReais, podeEditarFinanceiro, rotuloProcesso, textoDoGrupo } from "./financeiro-comum";
 import type { Lancamento } from "./financeiro-comum";
 import { SeloLancamento } from "./financeiro-ui";
 import { LancamentoFormulario } from "./LancamentoFormulario";
 
-export type ModoLancamento = "detalhe" | "editar" | "pagar" | "estornar" | "cancelar" | "reabrir" | "apagar";
+export type ModoLancamento = "detalhe" | "editar" | "pagar" | "estornar" | "cancelar" | "reabrir" | "apagar" | "cancelar_grupo";
 
 interface Props {
   lancamento: Lancamento;
@@ -27,6 +28,7 @@ const MENSAGENS = {
   estornar: { titulo: "Estornar pagamento", texto: "O lançamento volta para \"em aberto\" e o valor sai do caixa. Depois você pode registrar o pagamento de novo ou editar o lançamento.", botao: "Estornar", ok: "Pagamento estornado." },
   cancelar: { titulo: "Cancelar lançamento", texto: "O lançamento deixa de contar como valor a receber ou a pagar, mas continua guardado e pode ser reaberto.", botao: "Cancelar lançamento", ok: "Lançamento cancelado." },
   reabrir: { titulo: "Reabrir lançamento", texto: "O lançamento volta para \"em aberto\".", botao: "Reabrir", ok: "Lançamento reaberto." },
+  cancelar_grupo: { titulo: "Cancelar parcelas em aberto", texto: "Todas as parcelas (ou ocorrências) deste grupo que ainda estão em aberto, inclusive esta, serão canceladas. As que já foram pagas ou recebidas não mudam. Cada uma pode ser reaberta depois, individualmente.", botao: "Cancelar parcelas em aberto", ok: "Parcelas em aberto canceladas." },
   apagar: { titulo: "Apagar lançamento", texto: "O lançamento será apagado para sempre. Esta ação não pode ser desfeita. Só o sócio pode apagar, e a exclusão fica registrada.", botao: "Apagar para sempre", ok: "Lançamento apagado." },
 } as const;
 
@@ -78,9 +80,9 @@ export function LancamentoAcoes({ lancamento: l, modo, hoje, categorias, aoEscol
     );
   }
   const m = MENSAGENS[modo];
-  const caminho = modo === "apagar" ? `/api/financeiro/${l.id}` : `/api/financeiro/${l.id}/${modo}`;
+  const caminho = modo === "apagar" ? `/api/financeiro/${l.id}` : modo === "cancelar_grupo" ? `/api/financeiro/grupos/${l.grupo_id}/cancelar-abertas` : `/api/financeiro/${l.id}/${modo}`;
   return (
-    <Confirmar aberto titulo={m.titulo} rotuloConfirmar={m.botao} perigo={modo === "apagar" || modo === "cancelar"} carregando={executando} aoFechar={aoFechar} aoConfirmar={() => void executar(modo === "apagar" ? "DELETE" : "POST", caminho, m.ok)}>
+    <Confirmar aberto titulo={m.titulo} rotuloConfirmar={m.botao} perigo={modo === "apagar" || modo === "cancelar" || modo === "cancelar_grupo"} carregando={executando} aoFechar={aoFechar} aoConfirmar={() => void executar(modo === "apagar" ? "DELETE" : "POST", caminho, m.ok)}>
       {m.texto}
     </Confirmar>
   );
@@ -108,6 +110,7 @@ function Detalhe({ l, hoje, aoEscolher, aoFechar }: { l: Lancamento; hoje: strin
         </Linha>
         <Linha rotulo="Valor">{formatarReais(l.valor_centavos)}</Linha>
         <Linha rotulo="Vencimento">{formatarDataCivil(l.vencimento)}</Linha>
+        {textoDoGrupo(l) && <Linha rotulo="Parcelamento">{textoDoGrupo(l)}</Linha>}
         {l.status === "pago" && (
           <>
             <Linha rotulo={receita ? "Recebido em" : "Pago em"}>{formatarDataCivil(l.pago_em)}</Linha>
@@ -139,6 +142,18 @@ function Detalhe({ l, hoje, aoEscolher, aoFechar }: { l: Lancamento; hoje: strin
               {receita ? "Registrar recebimento" : "Registrar pagamento"}
             </Botao>
           </>
+        )}
+        {podeEditar && l.status === "aberto" && l.grupo_id && (
+          <Botao variante="secundario" onClick={() => aoEscolher("cancelar_grupo")}>
+            <Ban size={16} aria-hidden="true" />
+            Cancelar parcelas em aberto
+          </Botao>
+        )}
+        {receita && l.status === "pago" && (
+          <Botao variante="secundario" leitura onClick={() => navegar(`/financeiro/${l.id}/recibo`)}>
+            <Receipt size={16} aria-hidden="true" />
+            Emitir recibo
+          </Botao>
         )}
         {podeEditar && l.status === "pago" && (
           <Botao variante="secundario" onClick={() => aoEscolher("estornar")}>

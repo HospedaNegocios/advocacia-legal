@@ -8,6 +8,7 @@ import { Abas, AreaTexto, Aviso, Botao, CabecalhoPagina, Cartao, Confirmar, Entr
 import { ClienteFormulario } from "./ClienteFormulario";
 import { AbaPortal, useGestorDoPortal } from "./PortalGestao";
 import { AbaDocumentos, Dado } from "./abas-comuns";
+import { AbaFinanceiro } from "./FinanceiroVinculado";
 import { ROTULO_TIPO, cepFormatado, diaBr, documentoFormatado, hojeIso, telefoneFormatado } from "./clientes-comum";
 import type { Cliente, Consentimento, Contato } from "./clientes-comum";
 import { SeloFase } from "./ProcessoFase";
@@ -472,6 +473,7 @@ export function ClienteDetalhe({ id }: { id: string }) {
             { id: "documentos", rotulo: "Documentos", conteudo: <AbaDocumentos base={`/api/clientes/${c.id}`} editavel={c.ativo} ehSocio={ehSocio} texto={{ vazio: "Guarde aqui procuração, documentos pessoais e contratos deste cliente.", lista: "Documentos do cliente" }} /> },
             { id: "lgpd", rotulo: "LGPD", conteudo: <AbaLgpd c={c} /> },
             { id: "processos", rotulo: "Processos", conteudo: <AbaProcessos c={c} /> },
+            ...(eu?.permissoes.financeiro && eu.permissoes.financeiro !== "nenhum" ? [{ id: "financeiro", rotulo: "Financeiro", conteudo: <AbaFinanceiro cliente={{ id: c.id, rotulo: c.nome }} ativo={c.ativo} /> }] : []),
             ...(gestorDoPortal ? [{ id: "portal", rotulo: "Portal", conteudo: <AbaPortal c={c} /> }] : []),
           ]}
         />

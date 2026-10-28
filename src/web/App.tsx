@@ -9,6 +9,7 @@ import { ProcessoDetalhe } from "./paginas/ProcessoDetalhe";
 import { Processos } from "./paginas/Processos";
 import { Agenda } from "./paginas/Agenda";
 import { Financeiro } from "./paginas/Financeiro";
+import { Recibo } from "./paginas/Recibo";
 import { Intimacoes } from "./paginas/Intimacoes";
 import { Prazos } from "./paginas/Prazos";
 import { Diagnostico } from "./paginas/Diagnostico";
@@ -75,6 +76,7 @@ function Rotas() {
   else if (caminho === "/agenda" && !dono) conteudo = <Agenda />;
   else if (caminho === "/intimacoes" && !dono) conteudo = <Intimacoes />;
   else if (caminho === "/financeiro" && !dono && eu.permissoes.financeiro !== "nenhum") conteudo = <Financeiro />;
+  else if (/^\/financeiro\/[^/]+\/recibo$/.test(caminho) && !dono && eu.permissoes.financeiro !== "nenhum") conteudo = <Recibo id={caminho.split("/")[2] as string} />;
   else if (caminho === "/seguranca") conteudo = <Configurar2fa obrigatorio={false} />;
   return <Casca>{conteudo}</Casca>;
 }

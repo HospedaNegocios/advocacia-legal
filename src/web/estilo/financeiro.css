@@ -1,0 +1,35 @@
+/* Financeiro: filtros por cliente/processo e recibo (tela e impressão). Só tokens de tokens.css. */
+.barra-filtros-vinculos { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 0; align-items: start; }
+@media (max-width: 767.98px) { .barra-filtros-vinculos { grid-template-columns: minmax(0, 1fr); } }
+
+/* Recibo: uma "folha" legível na tela e, na impressão, a única coisa da página. */
+.recibo {
+  max-width: 44rem; margin: 0 auto; padding: var(--e-8); background: var(--cor-superficie); color: var(--cor-texto);
+  border: 1px solid var(--cor-borda); border-radius: var(--raio-lg); box-shadow: var(--sombra-1);
+}
+.recibo-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--e-4); padding-bottom: var(--e-4); border-bottom: 2px solid var(--cor-borda); }
+.recibo-escritorio { display: grid; gap: var(--e-1); min-width: 0; overflow-wrap: anywhere; font-size: var(--texto-sm); }
+.recibo-escritorio strong { font-size: var(--texto-lg); }
+.recibo-marca .marca-logo { color: var(--cor-texto); font-size: var(--texto-sm); }
+.recibo-titulo { margin: var(--e-8) 0 var(--e-2); text-align: center; font-size: var(--texto-2xl); letter-spacing: 0.12em; text-transform: uppercase; }
+.recibo-valor { margin: 0 0 var(--e-6); text-align: center; font-size: var(--texto-3xl); font-weight: 700; }
+.recibo-texto { margin: 0 0 var(--e-4); font-size: var(--texto-base); line-height: 1.7; overflow-wrap: anywhere; }
+.recibo-lacuna { display: inline-block; min-width: 14rem; border-bottom: 1px solid var(--cor-texto); vertical-align: baseline; }
+.recibo-assinatura { display: grid; justify-items: center; gap: var(--e-1); margin-top: var(--e-16); font-size: var(--texto-sm); text-align: center; }
+.recibo-linha { width: min(24rem, 100%); border-top: 1px solid var(--cor-texto); margin-bottom: var(--e-1); }
+.recibo-rodape { margin-top: var(--e-8); padding-top: var(--e-3); border-top: 1px solid var(--cor-borda); font-size: var(--texto-xs); color: var(--cor-texto-2); text-align: center; }
+@media (max-width: 767.98px) { .recibo { padding: var(--e-4); } .recibo-topo { flex-direction: column; } .recibo-valor { font-size: var(--texto-2xl); } .recibo-assinatura { margin-top: var(--e-8); } }
+
+@media print {
+  /* Só o recibo, em preto sobre branco, ocupando a folha. */
+  body { background: #fff !important; }
+  .lateral, .topo, .faixa-assinatura, .gaveta-fundo, .pular-conteudo, .recibo-cabecalho-tela, .banner-teste, .toasts, [role="dialog"] { display: none !important; }
+  .casca, .casca.recolhida { display: block !important; background: none !important; min-height: 0; }
+  .principal, .conteudo { display: block !important; padding: 0 !important; margin: 0 !important; max-width: none !important; }
+  .recibo { max-width: none; margin: 0; padding: 0; border: 0; box-shadow: none; border-radius: 0; background: #fff !important; color: #000 !important; }
+  .recibo * { color: #000 !important; }
+  .recibo-rodape { color: #444 !important; }
+  .recibo, .recibo-assinatura { break-inside: avoid; }
+  @page { margin: 18mm; }
+}
+.recibo .marca-selo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

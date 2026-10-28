@@ -1,4 +1,5 @@
 import type { Plano } from "./db/repositorio";
+import { mensagemLimiteDeUsuarios as textoLimite } from "../comum/textos-assinatura";
 
 /** Limite de OABs ativas por plano (CLAUDE.md, planos aprovados). `null` = ilimitado. */
 export function limiteDeOabs(plano: Plano): number | null {
@@ -15,8 +16,7 @@ export function limiteDeUsuarios(plano: Plano): number | null {
 }
 
 export function mensagemLimiteDeUsuarios(plano: Plano): string {
-  const limite = limiteDeUsuarios(plano);
-  return `Limite de usuários do plano atingido. O plano ${NOME_PLANO[plano]} permite ${limite} usuário${limite === 1 ? "" : "s"} (contando convites pendentes). Desative um usuário, exclua um convite pendente ou peça a troca de plano.`;
+  return textoLimite(NOME_PLANO[plano], limiteDeUsuarios(plano) ?? 0);
 }
 
 const NOME_PLANO: Record<Plano, string> = { solo: "Individual", escritorio: "Equipe", banca: "Sociedade" };

@@ -37,7 +37,9 @@ Middleware central `controleDeAssinatura` (`src/server/assinatura.ts`), registra
 
 ### Interface
 
-- Faixa fixa "Somente leitura" sob a barra superior (data do fim do teste e data do bloqueio).
+- Faixa fixa "Somente leitura" sob a barra superior (data do fim do teste, data do bloqueio e "Faltam N dias para o bloqueio").
+- **Banner de dias restantes** (`src/web/layout/BannerTeste.tsx`): para escritório `teste` ainda no prazo, todos os perfis veem "Seu teste grátis termina em N dias" (hoje/amanhã/singular) com WhatsApp e e-mail do suporte. Destaque: 8+ dias informativo, 4 a 7 atenção, até 3 urgente. Dispensável por dia no navegador (localStorage, com try/catch) só nos níveis informativo e atenção. `ativo` não mostra.
+- **Todos os textos** ficam em `src/comum/textos-assinatura.ts` e estão listados em `docs/TEXTOS-ASSINATURA.md` para revisão.
 - `Botao` (`src/web/ui/Botao.tsx`) fica desativado, com explicação no `title`, quando o escritório está em somente leitura e o botão é principal, de perigo ou de envio de formulário. `aria-pressed` (alternar visão) não é afetado; `leitura` marca uma ação que não grava (calcular data). O quadro de prazos não arrasta e o seletor "mover para" fica desativado. É só conforto: quem recusa de verdade é o servidor.
 - Bloqueado: tela "Assinatura vencida" (`AssinaturaVencida.tsx`) com WhatsApp e e-mail comerciais do CLAUDE.md e botão Sair.
 - Painel do dono: coluna "Teste até" mostra o último dia, o selo "Somente leitura" ou "Bloqueado" e o botão "Alterar" (`PATCH /api/plataforma/escritorios/:id` com `teste_ultimo_dia: "AAAA-MM-DD"`, auditoria `tenant_teste_alterado` com os dias de/para).
@@ -69,9 +71,9 @@ Tabela única: `LIMITE_USUARIOS` em `src/server/planos.ts`.
 
 ## 4. Pendências
 
-1. **Não existe data de vigência paga** no modelo (`tenants` só tem `status` e `teste_ate`). Por isso um escritório `ativo` nunca vence sozinho; a ativação e a suspensão continuam manuais pelo dono. Quando houver cobrança, será preciso uma data de vigência (ou gateway) e decidir a regra de carência.
-2. **Aviso antes do vencimento**: hoje só o painel do dono mostra quem está perto do fim do teste, e o escritório só vê "Somente leitura" depois de vencer. Falta decidir quem avisa o cliente antes (faixa "faltam N dias" no app? e-mail via Resend, hoje adiado? contato manual do dono?). `GET /api/eu` já devolve `dias_para_fim_teste`.
+1. **Não existe data de vigência paga** no modelo (`tenants` só tem `status` e `teste_ate`). Por isso um escritório `ativo` nunca vence sozinho. **Decisão do usuário em 2026-10-28:** o dono da plataforma controla manualmente (ativa, suspende, cancela); o escritório `ativo` não vê banner de vencimento. Quando houver cobrança, será preciso uma data de vigência (ou gateway) e decidir a regra de carência.
+2. **Aviso antes do vencimento**: resolvido no app com o banner de dias restantes (acima). Aviso por e-mail continua adiado (Resend).
 3. **Portal do cliente com escritório bloqueado por data**: continua acessível (ver acima). Decidir se deve recusar e alterar `portal-sessao.ts` depois.
-4. Textos das mensagens de 402 e da tela "Assinatura vencida" (em linguagem simples) aguardam aprovação do usuário.
+4. Textos reescritos em linguagem simples (`docs/TEXTOS-ASSINATURA.md`); aguardam revisão do usuário.
 5. Escritório `ativo` com plano reduzido para abaixo do número de usuários atuais: ninguém é removido (decisão conservadora).
 6. Prazo de retenção de 90 dias após cancelamento (CLAUDE.md) não tem relação automática com o bloqueio: bloqueado por teste vencido não inicia contagem de exclusão.

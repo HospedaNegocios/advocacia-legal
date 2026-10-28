@@ -1,4 +1,5 @@
 import { CircleCheck, CircleX, Clock, Lock, LogIn, LogOut, Plus, ShieldAlert, ShieldCheck, UsersRound, MailQuestion, UserX } from "lucide-react";
+import { CONVITE_CONFIRMAR_EXCLUSAO, conviteExcluidoAviso } from "../../comum/textos-assinatura";
 import { useCallback, useEffect, useState } from "react";
 import { ErroApi, ROTULO_NIVEL_ACESSO, ROTULO_PERFIL, api, formatarData } from "../api";
 import type { NivelAcesso, Perfil } from "../api";
@@ -459,11 +460,11 @@ export function Equipe() {
           const m = excluindoConvite;
           if (!m) return;
           setExcluindoConvite(null);
-          void executar(async () => void (await api("DELETE", `/api/equipe/convites/${m.id}`)), `Convite de ${m.email} excluído.`);
+          void executar(async () => void (await api("DELETE", `/api/equipe/convites/${m.id}`)), conviteExcluidoAviso(m.email));
           void carregarPermissoes();
         }}
       >
-        Excluir o convite de {excluindoConvite?.email}? O link enviado deixa de funcionar e a vaga volta a ficar livre.
+        Excluir o convite de {excluindoConvite?.email}? {CONVITE_CONFIRMAR_EXCLUSAO}
       </Confirmar>
 
       <Confirmar

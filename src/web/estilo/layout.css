@@ -145,3 +145,10 @@
 .faixa-assinatura { position: sticky; top: var(--topo-altura); z-index: 15; padding: var(--e-3) var(--e-6) 0; background: var(--cor-fundo); }
 .faixa-assinatura .aviso { max-width: 78rem; margin: 0 auto; border: 1px solid var(--cor-borda); }
 @media (max-width: 767px) { .faixa-assinatura { position: static; padding: var(--e-2) var(--e-4) 0; } .faixa-assinatura .aviso { font-size: var(--texto-xs); padding: var(--e-2) var(--e-3); } }
+
+/* Banner de dias restantes do teste grátis (BannerTeste.tsx) */
+.faixa-assinatura .banner-teste { max-width: 78rem; margin: 0 auto; border: 1px solid var(--cor-borda); align-items: center; }
+.banner-teste-texto { flex: 1; min-width: 0; }
+.banner-teste a { color: inherit; font-weight: 600; text-decoration: underline; overflow-wrap: anywhere; }
+.banner-teste-fechar { flex: none; color: inherit; min-width: 44px; min-height: 44px; margin: calc(var(--e-2) * -1) calc(var(--e-2) * -1) calc(var(--e-2) * -1) 0; }
+.banner-teste[data-nivel="urgente"] .banner-teste-texto strong { text-decoration: none; }

@@ -4,6 +4,7 @@ import { criarAcessoAgendado, criarAcessoPlataforma, criarRepositorio } from "..
 import type { Perfil, Plano } from "../src/server/db/repositorio";
 import { hojeEm, instanteLocal, somarDias } from "../src/comum/fuso";
 import { DIAS_SOMENTE_LEITURA, limiteDeBloqueioIso, resumoDaAssinatura, situacaoDaAssinatura, testeAteDoDia } from "../src/comum/assinatura";
+import { CONTATO_SUPORTE, MENSAGEM_BLOQUEADO, MENSAGEM_SOMENTE_LEITURA, mensagemLimiteDeUsuarios, nivelDoBanner, podeDispensarBanner, textoBannerTeste, textoFaixaLeitura } from "../src/comum/textos-assinatura";
 import { prepararBanco } from "./aplicar-migracoes";
 import { chamar, criarEscritorio, criarUsuario, entrar, sessaoDeDono, sessaoDeUsuario, unico } from "./ajuda";
 
@@ -360,5 +361,51 @@ describe("excluir convite pendente", () => {
     expect((await chamar("DELETE", `/api/equipe/convites/${b.id}`, { cookie: a.socio.cookie })).status).toBe(404);
     expect(await env.DB.prepare("SELECT id FROM users WHERE id = ?").bind(b.id).first()).not.toBeNull();
     expect((await chamar("DELETE", `/api/equipe/convites/nao-existe`, { cookie: a.socio.cookie })).status).toBe(404);
+  });
+});
+
+describe("textos e limiares do banner de dias restantes", () => {
+  it("texto no singular, plural, hoje e amanhã", () => {
+    expect(textoBannerTeste(0)).toBe("Seu teste grátis termina hoje");
+    expect(textoBannerTeste(1)).toBe("Seu teste grátis termina amanhã");
+    expect(textoBannerTeste(2)).toBe("Seu teste grátis termina em 2 dias");
+    expect(textoBannerTeste(14)).toBe("Seu teste grátis termina em 14 dias");
+  });
+  it("limiares: até 3 urgente, até 7 atenção, acima informativo; urgente não é dispensável", () => {
+    expect(nivelDoBanner(0)).toBe("urgente");
+    expect(nivelDoBanner(3)).toBe("urgente");
+    expect(nivelDoBanner(4)).toBe("atencao");
+    expect(nivelDoBanner(7)).toBe("atencao");
+    expect(nivelDoBanner(8)).toBe("info");
+    expect(podeDispensarBanner("urgente")).toBe(false);
+    expect(podeDispensarBanner("atencao")).toBe(true);
+    expect(podeDispensarBanner("info")).toBe(true);
+  });
+  it("faixa de somente leitura com dias para o bloqueio (singular e plural)", () => {
+    expect(textoFaixaLeitura("10/11/2026", "21/11/2026", 3)).toContain("Faltam 3 dias para o bloqueio (a partir de 21/11/2026).");
+    expect(textoFaixaLeitura("10/11/2026", "21/11/2026", 1)).toContain("Falta 1 dia para o bloqueio");
+    expect(textoFaixaLeitura(null, null, null)).not.toContain("bloqueio");
+  });
+  it("mensagem de limite usa singular e plural e as respostas do servidor vêm dos textos centrais", () => {
+    expect(mensagemLimiteDeUsuarios("Individual", 1)).toContain("permite 1 usuário,");
+    expect(mensagemLimiteDeUsuarios("Equipe", 5)).toContain("permite 5 usuários,");
+    expect(MENSAGEM_SOMENTE_LEITURA).toMatch(/teste/);
+    expect(MENSAGEM_BLOQUEADO).toMatch(/bloqueado/);
+    expect(CONTATO_SUPORTE.email).toBe("comercial@advocacia.legal");
+  });
+  it("/api/eu: dias restantes no teste, sem dias_para_bloqueio; ativo não traz contagem; mensagem 402 é o texto central", async () => {
+    const { t, socio } = await cenario();
+    await terminarTesteHa(t, -5);
+    const eu = await chamar("GET", "/api/eu", { cookie: socio.cookie });
+    expect(eu.json.escritorio.status).toBe("teste");
+    expect(eu.json.assinatura).toMatchObject({ situacao: "normal", dias_para_fim_teste: 5, dias_para_bloqueio: null });
+    await terminarTesteHa(t, 2);
+    const leitura = await chamar("GET", "/api/eu", { cookie: socio.cookie });
+    expect(leitura.json.assinatura).toMatchObject({ situacao: "leitura", dias_para_fim_teste: null, dias_para_bloqueio: 9 });
+    const r402 = await chamar("POST", "/api/clientes", { cookie: socio.cookie, corpo: {} });
+    expect(r402.json.erro).toBe(MENSAGEM_SOMENTE_LEITURA);
+    await criarAcessoPlataforma(env.DB).atualizarEscritorio(t, { status: "ativo" });
+    const ativo = await chamar("GET", "/api/eu", { cookie: socio.cookie });
+    expect(ativo.json.assinatura).toMatchObject({ situacao: "normal", dias_para_fim_teste: null, dias_para_bloqueio: null });
   });
 });

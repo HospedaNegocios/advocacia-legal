@@ -1,0 +1,69 @@
+name: configurar-resend
+
+# Grava a chave de API do Resend como segredo do Worker (RESEND_API_KEY) no ambiente escolhido.
+# A chave vem de um GitHub Secret (RESEND_API_KEY_DEV ou RESEND_API_KEY_PROD) e vai direto para o wrangler
+# por entrada padrão: nunca é exibida em log nem passa por argumento de comando.
+# Se o segredo já existir no Cloudflare, NADA é alterado, a menos que "substituir" seja marcado.
+# Requer que o Worker do ambiente já tenha sido publicado ao menos uma vez (deploy automático).
+# Este workflow NÃO liga o envio: quem liga é EMAIL_ALERTAS_ATIVO no wrangler.jsonc (docs/EMAIL.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente
+        type: choice
+        required: true
+        options: [dev, prod]
+      substituir:
+        description: Substituir a chave se já existir (troca de chave)
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: configurar-resend-${{ inputs.ambiente }}
+  cancel-in-progress: false
+
+jobs:
+  configurar:
+    if: inputs.ambiente != 'prod' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AMBIENTE: ${{ inputs.ambiente }}
+      SUBSTITUIR: ${{ inputs.substituir }}
+      CHAVE_RESEND: ${{ inputs.ambiente == 'prod' && secrets.RESEND_API_KEY_PROD || secrets.RESEND_API_KEY_DEV }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Gravar RESEND_API_KEY
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${CHAVE_RESEND:-}" ]; then
+            echo "Não há GitHub Secret RESEND_API_KEY_$(printf '%s' "$AMBIENTE" | tr '[:lower:]' '[:upper:]') neste repositório. Crie-o em Settings > Secrets and variables > Actions e rode de novo." >&2
+            exit 1
+          fi
+          # Garante que o valor seja mascarado em qualquer saída.
+          echo "::add-mask::$CHAVE_RESEND"
+          if ! lista="$(npx wrangler secret list --env "$AMBIENTE" --format json)"; then
+            echo "Não foi possível listar os segredos. O Worker de $AMBIENTE já foi publicado? (o deploy automático precisa ter rodado)" >&2
+            exit 1
+          fi
+          if printf '%s' "$lista" | jq -e 'map(.name) | index("RESEND_API_KEY") != null' > /dev/null && [ "$SUBSTITUIR" != "true" ]; then
+            echo "AVISO: RESEND_API_KEY já existe em $AMBIENTE. Nada foi alterado. Para trocar a chave, rode de novo marcando 'substituir'."
+            exit 0
+          fi
+          # A chave vai da variável direto para a entrada padrão do wrangler, sem echo nem argumento.
+          printf '%s' "$CHAVE_RESEND" | npx wrangler secret put RESEND_API_KEY --env "$AMBIENTE" > /dev/null
+          echo "RESEND_API_KEY gravada em $AMBIENTE. O envio continua desligado até EMAIL_ALERTAS_ATIVO ser ligado (docs/EMAIL.md)."

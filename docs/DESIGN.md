@@ -28,6 +28,7 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | `site/public/estilo.css` | Site de vendas: tokens copiados de `tokens.css` (repetir mudanças), claro/escuro automático, sem JS; ver `docs/SITE.md` |
 | `src/web/paginas/CalculoPrazo.tsx`, `CalendarioEscritorio.tsx` | Calculadora "Calcular data final" dentro do formulário de prazo (blocos `.calc-*` em `agenda.css`) e aba Calendário do Escritório. Aviso fixo de conferência em ambas |
 | `src/web/somente-leitura.tsx`, `src/web/paginas/AssinaturaVencida.tsx`, `.faixa-assinatura` em `layout.css` | Escritório com teste vencido: faixa fixa "Somente leitura" na casca, `Botao` de gravar desativado por contexto (prop `leitura` isenta ações que não gravam) e tela "Assinatura vencida" quando bloqueado; ver `docs/ASSINATURA.md` |
+| `src/web/paginas/MinhaConta.tsx` | Tela "Minha conta" (menu do usuário): preferências pessoais, hoje o aviso diário de prazos por e-mail (`CampoMarcar` que grava ao marcar, aviso informativo se o envio ainda não foi habilitado); ver `docs/EMAIL.md` |
 | `src/web/painel.ts` | Cálculos do painel do dono (com testes em `test/painel-calculos.test.ts`) |
 
 ## Tokens

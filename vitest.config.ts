@@ -22,6 +22,7 @@ export default defineConfig(async () => {
         },
       }),
     ],
-    test: { include: ["test/**/*.test.ts"] },
+    // Testes com várias senhas PBKDF2 (portal, equipe) passam de 5 s em máquina lenta (CI).
+    test: { include: ["test/**/*.test.ts"], testTimeout: 30_000 },
   };
 });

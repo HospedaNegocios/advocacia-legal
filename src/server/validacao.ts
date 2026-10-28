@@ -36,7 +36,7 @@ export function ehPerfil(v: unknown): v is Perfil {
   return typeof v === "string" && (PERFIS as readonly string[]).includes(v);
 }
 
-export function respostaErro(c: Ctx, status: 400 | 401 | 403 | 404 | 409 | 413 | 429 | 500, erro: string) {
+export function respostaErro(c: Ctx, status: 400 | 401 | 403 | 404 | 409 | 413 | 429 | 500 | 503, erro: string) {
   return c.json({ ok: false, erro }, status);
 }
 

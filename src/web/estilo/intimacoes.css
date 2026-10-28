@@ -16,3 +16,11 @@
 .intimacao-selos { display: flex; flex-wrap: wrap; gap: var(--e-2); }
 .intimacoes-acoes-lista { display: flex; justify-content: flex-end; padding: var(--e-3) var(--e-4); border-bottom: 1px solid var(--cor-borda); }
 @media (max-width: 767.98px) { .intimacoes-acoes-lista .btn { width: 100%; } .intimacao-texto { max-height: 50dvh; } }
+
+/* Resumo por IA */
+.resumo-ia { display: grid; gap: var(--e-3); min-width: 0; padding: var(--e-4); border: 1px solid var(--cor-borda); border-radius: var(--raio-md); background: var(--cor-superficie); }
+.resumo-ia-cabecalho { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--e-2); }
+.resumo-ia-uso { margin: 0; }
+.resumo-ia-texto { max-height: 16rem; }
+.resumo-ia-acoes { flex-wrap: wrap; }
+@media (max-width: 767.98px) { .resumo-ia-acoes .btn { width: 100%; } }

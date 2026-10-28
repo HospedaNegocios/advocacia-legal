@@ -321,6 +321,21 @@ export type NovaIntimacao = Pick<
 
 /** Linha da lista: sem o texto integral (só o começo, para a prévia). */
 export type IntimacaoResumida = Omit<LinhaIntimacao, "texto"> & { texto_inicio: string; processo_cnj: string | null };
+export type SituacaoResumoIa = "rascunho" | "aprovado" | "rejeitado";
+export interface LinhaResumoIa {
+  id: string;
+  tenant_id: string;
+  intimacao_id: string;
+  texto: string;
+  modelo: string;
+  situacao: SituacaoResumoIa;
+  gerado_por: string;
+  decidido_por: string | null;
+  decidido_em: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
 export type IntimacaoDetalhada = LinhaIntimacao & { processo_cnj: string | null };
 
 export interface OabDaIntimacao {
@@ -1029,6 +1044,22 @@ export interface Repositorio {
     vincularProcesso(id: string, processoId: string): Promise<boolean>;
     /** Liga ao processo (pelo número CNJ) as intimações do escritório que ainda não têm processo. Devolve quantas ligou. */
     vincularOrfas(): Promise<number>;
+  };
+  /** Resumos por IA das intimações (um por intimação) e a contagem diária de uso. Nunca registra o texto na auditoria. */
+  resumosIa: {
+    buscar(intimacaoId: string): Promise<LinhaResumoIa | null>;
+    /** Grava um rascunho novo (ou substitui rascunho/rejeitado). Falso se já existe resumo aprovado. */
+    salvarRascunho(intimacaoId: string, dados: { texto: string; modelo: string; geradoPor: string }, agoraIso: string): Promise<boolean>;
+    /** Muda o texto, só enquanto for rascunho. */
+    editarRascunho(intimacaoId: string, texto: string, agoraIso: string): Promise<boolean>;
+    /** Rascunho → aprovado, ou rascunho/aprovado → rejeitado. Falso se a situação atual não permite. */
+    decidir(intimacaoId: string, para: "aprovado" | "rejeitado", userId: string, agoraIso: string): Promise<boolean>;
+    /** Quantos resumos o escritório gerou no dia (AAAA-MM-DD de São Paulo). */
+    usoDoDia(dia: string): Promise<number>;
+    /** Reserva 1 uso do dia de forma atômica. Falso se o limite já foi atingido. */
+    reservarUso(dia: string, limite: number): Promise<boolean>;
+    /** Devolve 1 uso reservado (quando a IA falhou). */
+    devolverUso(dia: string): Promise<void>;
   };
   /** Execuções da busca no DJEN deste escritório (sem texto de publicação). */
   djen: {
@@ -1911,6 +1942,58 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
           .bind(tid)
           .run();
         return r.meta.changes;
+      },
+    },
+    resumosIa: {
+      async buscar(intimacaoId) {
+        return (await db.prepare("SELECT * FROM intimacoes_resumos WHERE tenant_id = ? AND intimacao_id = ?").bind(tid, intimacaoId).first<LinhaResumoIa>()) ?? null;
+      },
+      async salvarRascunho(intimacaoId, d, agoraIso) {
+        const r = await db
+          .prepare(
+            `INSERT INTO intimacoes_resumos (id, tenant_id, intimacao_id, texto, modelo, situacao, gerado_por, decidido_por, decidido_em, criado_em, atualizado_em)
+             VALUES (?, ?, ?, ?, ?, 'rascunho', ?, NULL, NULL, ?, ?)
+             ON CONFLICT (tenant_id, intimacao_id) DO UPDATE SET
+               texto = excluded.texto, modelo = excluded.modelo, situacao = 'rascunho', gerado_por = excluded.gerado_por,
+               decidido_por = NULL, decidido_em = NULL, criado_em = excluded.criado_em, atualizado_em = excluded.atualizado_em
+             WHERE intimacoes_resumos.situacao <> 'aprovado'`,
+          )
+          .bind(crypto.randomUUID(), tid, intimacaoId, d.texto, d.modelo, d.geradoPor, agoraIso, agoraIso)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async editarRascunho(intimacaoId, texto, agoraIso) {
+        const r = await db
+          .prepare("UPDATE intimacoes_resumos SET texto = ?, atualizado_em = ? WHERE tenant_id = ? AND intimacao_id = ? AND situacao = 'rascunho'")
+          .bind(texto, agoraIso, tid, intimacaoId)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async decidir(intimacaoId, para, userId, agoraIso) {
+        const origem = para === "aprovado" ? "situacao = 'rascunho'" : "situacao IN ('rascunho', 'aprovado')";
+        const r = await db
+          .prepare(`UPDATE intimacoes_resumos SET situacao = ?, decidido_por = ?, decidido_em = ?, atualizado_em = ? WHERE tenant_id = ? AND intimacao_id = ? AND ${origem}`)
+          .bind(para, userId, agoraIso, agoraIso, tid, intimacaoId)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async usoDoDia(dia) {
+        const l = await db.prepare("SELECT usado FROM ia_uso_diario WHERE tenant_id = ? AND dia = ?").bind(tid, dia).first<{ usado: number }>();
+        return l?.usado ?? 0;
+      },
+      async reservarUso(dia, limite) {
+        if (limite <= 0) return false;
+        const r = await db
+          .prepare(
+            `INSERT INTO ia_uso_diario (tenant_id, dia, usado) VALUES (?, ?, 1)
+             ON CONFLICT (tenant_id, dia) DO UPDATE SET usado = usado + 1 WHERE usado < ?`,
+          )
+          .bind(tid, dia, limite)
+          .run();
+        return r.meta.changes > 0;
+      },
+      async devolverUso(dia) {
+        await db.prepare("UPDATE ia_uso_diario SET usado = usado - 1 WHERE tenant_id = ? AND dia = ? AND usado > 0").bind(tid, dia).run();
       },
     },
     djen: {

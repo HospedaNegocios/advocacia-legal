@@ -1,5 +1,10 @@
 export type Ambiente = "dev" | "prod" | "teste";
 
+/** Parte do binding Workers AI que usamos (o tipo completo exige o nome do modelo na compilação). */
+export interface BindingIa {
+  run(modelo: string, entrada: Record<string, unknown>): Promise<unknown>;
+}
+
 export interface Env {
   DB: D1Database;
   ARQUIVOS: R2Bucket;
@@ -17,4 +22,6 @@ export interface Env {
   DJEN_COLETA_ATIVA?: string;
   /** Binding `send_email` do Cloudflare Email Service. */
   EMAIL?: SendEmail;
+  /** Binding Workers AI (resumo das intimações). Ausente = recurso indisponível. */
+  AI?: BindingIa;
 }

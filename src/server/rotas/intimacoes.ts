@@ -1,15 +1,18 @@
 import { Hono } from "hono";
+import type { MiddlewareHandler } from "hono";
 import type { Env } from "../env";
 import type { Ctx, Variaveis } from "../contexto";
 import { htmlParaTexto } from "../../comum/html";
 import { FUSO_PADRAO, dataCivilValida, hojeEm, somarDias } from "../../comum/fuso";
-import type { IntimacaoDetalhada, IntimacaoResumida, OabDaIntimacao, Repositorio } from "../db/repositorio";
+import type { IntimacaoDetalhada, IntimacaoResumida, LinhaResumoIa, OabDaIntimacao, Repositorio } from "../db/repositorio";
 import { criarAcessoAutenticacao } from "../db/repositorio";
 import { buscarDoEscritorio } from "../djen/coleta";
 import { depsDjen } from "../djen/ambiente";
 import { exigirSessao } from "../sessao";
 import { lerJson, respostaErro } from "../validacao";
 import { numeroPositivo, registrar, repoDaSessao } from "./comum";
+import { MAX_CARACTERES_RESUMO, bindingIa, ErroIa, gerarResumo, prepararEntrada, MODELO_RESUMO } from "../ia";
+import { cotaDeIa, mensagemCotaDeIaEsgotada, mensagemPlanoSemIa } from "../planos";
 
 // Intimações do DJEN. Todos os perfis do escritório leem, marcam como lida e vinculam a processo; só o sócio dispara a busca.
 // Ninguém apaga intimação. O escritório vem SEMPRE da sessão. Os registros NÃO guardam nem registram texto de publicação na auditoria.
@@ -193,3 +196,100 @@ rotasIntimacoes.post("/:id/processo", async (c) => {
   const nova = await repo.intimacoes.buscarDetalhada(i.id);
   return c.json({ ok: true, intimacao: nova ? await detalhePublico(repo, nova) : null });
 });
+
+// ---------- Resumo por IA (docs/IA.md) ----------
+// Ver, todos os perfis. Gerar, editar, aprovar e rejeitar: só sócio e advogado (quem responde pela revisão).
+// A auditoria guarda só ids, modelo e situação, NUNCA o texto da publicação nem o do resumo.
+
+const exigirRevisor: MiddlewareHandler<{ Bindings: Env; Variables: Variaveis }> = async (c, next) => {
+  const perfil = c.get("sessao").usuario.perfil;
+  if (perfil !== "socio" && perfil !== "advogado") return respostaErro(c, 403, "Só sócio ou advogado pode gerar, editar, aprovar ou rejeitar resumos.");
+  await next();
+};
+
+const resumoPublico = (r: LinhaResumoIa | null) =>
+  r
+    ? { id: r.id, texto: r.texto, modelo: r.modelo, situacao: r.situacao, gerado_por: r.gerado_por, decidido_por: r.decidido_por, decidido_em: r.decidido_em, criado_em: r.criado_em, atualizado_em: r.atualizado_em }
+    : null;
+
+async function estadoDoResumo(repo: Repositorio, intimacaoId: string) {
+  const dia = hojeEm(FUSO_PADRAO);
+  const [escritorio, resumo, usado] = await Promise.all([repo.buscarMeuEscritorio(), repo.resumosIa.buscar(intimacaoId), repo.resumosIa.usoDoDia(dia)]);
+  const plano = escritorio?.plano ?? "solo";
+  const limite = cotaDeIa(plano);
+  return { plano, resumo: resumoPublico(resumo), uso: { dia, usado: Math.min(usado, limite), limite, restante: Math.max(0, limite - usado) } };
+}
+
+rotasIntimacoes.get("/:id/resumo", async (c) => {
+  const repo = repoDaSessao(c);
+  const id = c.req.param("id");
+  if (!(await repo.intimacoes.buscarDetalhada(id))) return respostaErro(c, 404, "Intimação não encontrada.");
+  const e = await estadoDoResumo(repo, id);
+  return c.json({ ok: true, resumo: e.resumo, uso: e.uso });
+});
+
+rotasIntimacoes.post("/:id/resumo/gerar", exigirRevisor, async (c) => {
+  const repo = repoDaSessao(c);
+  const id = c.req.param("id");
+  const i = await repo.intimacoes.buscarDetalhada(id);
+  if (!i) return respostaErro(c, 404, "Intimação não encontrada.");
+  const e = await estadoDoResumo(repo, id);
+  if (e.uso.limite === 0) return respostaErro(c, 403, mensagemPlanoSemIa(e.plano));
+  if (e.resumo?.situacao === "aprovado") return respostaErro(c, 409, "Este resumo já foi aprovado. Rejeite-o antes de gerar outro.");
+  if (i.texto.trim().length === 0) return respostaErro(c, 400, "A publicação não trouxe texto para resumir.");
+  const entrada = prepararEntrada(i.texto);
+  // Reserva a cota ANTES de chamar a IA (evita gastar além do limite em cliques simultâneos) e devolve se a IA falhar.
+  const dia = e.uso.dia;
+  if (!(await repo.resumosIa.reservarUso(dia, e.uso.limite))) return respostaErro(c, 429, mensagemCotaDeIaEsgotada(e.uso.limite));
+  let texto: string;
+  try {
+    texto = await gerarResumo(bindingIa(c.env), entrada);
+  } catch (erro) {
+    await repo.resumosIa.devolverUso(dia);
+    if (erro instanceof ErroIa) return respostaErro(c, 503, "Não foi possível gerar o resumo agora. Nada foi descontado da sua cota. Tente de novo em instantes.");
+    throw erro;
+  }
+  const sessao = c.get("sessao");
+  const gravou = await repo.resumosIa.salvarRascunho(id, { texto, modelo: MODELO_RESUMO, geradoPor: sessao.usuario.id }, new Date().toISOString());
+  if (!gravou) {
+    await repo.resumosIa.devolverUso(dia);
+    return respostaErro(c, 409, "Este resumo já foi aprovado. Rejeite-o antes de gerar outro.");
+  }
+  await registrar(c, "resumo_ia_gerado", "intimacoes_resumos", id, { modelo: MODELO_RESUMO, truncado: entrada.truncado });
+  const novo = await estadoDoResumo(repo, id);
+  return c.json({ ok: true, resumo: novo.resumo, uso: novo.uso, texto_cortado: entrada.truncado });
+});
+
+rotasIntimacoes.put("/:id/resumo", exigirRevisor, async (c) => {
+  const repo = repoDaSessao(c);
+  const id = c.req.param("id");
+  const atual = await repo.resumosIa.buscar(id);
+  if (!atual) return respostaErro(c, 404, "Esta intimação ainda não tem resumo.");
+  const corpo = await lerJson(c);
+  const texto = typeof corpo["texto"] === "string" ? corpo["texto"].trim() : "";
+  if (texto.length === 0) return respostaErro(c, 400, "O resumo não pode ficar vazio.");
+  if (texto.length > MAX_CARACTERES_RESUMO) return respostaErro(c, 400, `O resumo pode ter no máximo ${MAX_CARACTERES_RESUMO} caracteres.`);
+  if (atual.situacao !== "rascunho") return respostaErro(c, 409, "Só é possível editar um resumo em rascunho. Rejeite o atual e gere outro.");
+  if (!(await repo.resumosIa.editarRascunho(id, texto, new Date().toISOString()))) return respostaErro(c, 409, "Só é possível editar um resumo em rascunho.");
+  await registrar(c, "resumo_ia_editado", "intimacoes_resumos", id);
+  const e = await estadoDoResumo(repo, id);
+  return c.json({ ok: true, resumo: e.resumo, uso: e.uso });
+});
+
+for (const [rota, para, acao] of [
+  ["aprovar", "aprovado", "resumo_ia_aprovado"],
+  ["rejeitar", "rejeitado", "resumo_ia_rejeitado"],
+] as const) {
+  rotasIntimacoes.post(`/:id/resumo/${rota}`, exigirRevisor, async (c) => {
+    const repo = repoDaSessao(c);
+    const id = c.req.param("id");
+    const atual = await repo.resumosIa.buscar(id);
+    if (!atual) return respostaErro(c, 404, "Esta intimação ainda não tem resumo.");
+    if (!(await repo.resumosIa.decidir(id, para, c.get("sessao").usuario.id, new Date().toISOString()))) {
+      return respostaErro(c, 409, para === "aprovado" ? "Só é possível aprovar um resumo em rascunho." : "Este resumo já foi rejeitado.");
+    }
+    await registrar(c, acao, "intimacoes_resumos", id, { de: atual.situacao, para });
+    const e = await estadoDoResumo(repo, id);
+    return c.json({ ok: true, resumo: e.resumo, uso: e.uso });
+  });
+}

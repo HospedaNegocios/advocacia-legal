@@ -37,9 +37,15 @@ function repoDaSessao(c: Context<{ Bindings: Env; Variables: Variaveis }, any>) 
   return criarRepositorio(c.env.DB, tenantId as string);
 }
 
+/** Usuário da equipe do escritório da sessão. Quem foi excluído não é mais encontrado. */
+async function buscarMembro(repo: ReturnType<typeof criarRepositorio>, id: string) {
+  const u = await repo.users.buscar(id);
+  return u && u.excluido_em === null ? u : null;
+}
+
 rotasEquipe.get("/usuarios", async (c) => {
   const repo = repoDaSessao(c);
-  const [usuarios, escritorio] = await Promise.all([repo.users.listar({}, { limite: 200 }), repo.buscarMeuEscritorio()]);
+  const [usuarios, escritorio] = await Promise.all([repo.users.listar({ excluido_em: null }, { limite: 200 }), repo.buscarMeuEscritorio()]);
   const vagas = await repo.vagas.contarOcupadas();
   return c.json({
     ok: true,
@@ -79,7 +85,7 @@ rotasEquipe.post("/convites", async (c) => {
 rotasEquipe.patch("/usuarios/:id", async (c) => {
   const sessao = c.get("sessao");
   const repo = repoDaSessao(c);
-  const alvo = await repo.users.buscar(c.req.param("id"));
+  const alvo = await buscarMembro(repo, c.req.param("id"));
   if (!alvo) return respostaErro(c, 404, "Usuário não encontrado.");
   const corpo = await lerJson(c);
   if (!ehPerfil(corpo.perfil)) return respostaErro(c, 400, "Perfil inválido.");
@@ -100,7 +106,7 @@ rotasEquipe.patch("/usuarios/:id", async (c) => {
 rotasEquipe.post("/usuarios/:id/desativar", async (c) => {
   const sessao = c.get("sessao");
   const repo = repoDaSessao(c);
-  const alvo = await repo.users.buscar(c.req.param("id"));
+  const alvo = await buscarMembro(repo, c.req.param("id"));
   if (!alvo) return respostaErro(c, 404, "Usuário não encontrado.");
   if (alvo.id === sessao.usuario.id) return respostaErro(c, 400, "Você não pode desativar o seu próprio usuário.");
   await repo.users.atualizar(alvo.id, { ativo: 0 });
@@ -119,7 +125,7 @@ rotasEquipe.post("/usuarios/:id/desativar", async (c) => {
 rotasEquipe.post("/usuarios/:id/reativar", async (c) => {
   const sessao = c.get("sessao");
   const repo = repoDaSessao(c);
-  const alvo = await repo.users.buscar(c.req.param("id"));
+  const alvo = await buscarMembro(repo, c.req.param("id"));
   if (!alvo) return respostaErro(c, 404, "Usuário não encontrado.");
   if (alvo.ativo !== 1) {
     // Reativar também respeita o limite do plano (ativos + convites pendentes, sem contar este usuário).
@@ -136,6 +142,29 @@ rotasEquipe.post("/usuarios/:id/reativar", async (c) => {
     acao: "usuario_reativado",
     entidade: "users",
     entidadeId: alvo.id,
+    ip: ipDe(c),
+  });
+  return c.json({ ok: true });
+});
+
+/**
+ * Exclui alguém da equipe (usuário ativo, desativado ou convite em qualquer situação) e libera a vaga do plano.
+ * O sócio não exclui a si mesmo: assim o escritório sempre continua com pelo menos um sócio (quem excluiu).
+ * Processos, prazos, lançamentos e o histórico criados pela pessoa continuam no escritório.
+ */
+rotasEquipe.delete("/usuarios/:id", async (c) => {
+  const sessao = c.get("sessao");
+  const id = c.req.param("id");
+  if (id === sessao.usuario.id) return respostaErro(c, 400, "Você não pode excluir o seu próprio usuário. Peça a outro sócio.");
+  const r = await repoDaSessao(c).vagas.excluirUsuario(id);
+  if (r === "nao_encontrado") return respostaErro(c, 404, "Usuário não encontrado.");
+  await auditar(c.env.DB, {
+    tenantId: sessao.tenantId,
+    userId: sessao.usuario.id,
+    acao: r.convite_pendente ? "convite_excluido" : "usuario_excluido",
+    entidade: "users",
+    // Só ids, como nos demais registros da equipe. Quem já entrou continua com o nome no banco (o log mostra quem era).
+    entidadeId: id,
     ip: ipDe(c),
   });
   return c.json({ ok: true });
@@ -219,7 +248,7 @@ rotasEquipe.put("/:usuarioId/permissoes/financeiro", async (c) => {
   }
   const novo: NivelPermissao | null = pedido === "nenhum" ? null : (pedido as NivelPermissao);
   const repo = repoDaSessao(c);
-  const alvo = await repo.users.buscar(c.req.param("usuarioId"));
+  const alvo = await buscarMembro(repo, c.req.param("usuarioId"));
   if (!alvo || alvo.perfil === null) return respostaErro(c, 404, "Usuário não encontrado.");
   if (alvo.perfil === "socio") return respostaErro(c, 409, "Sócios têm acesso total ao financeiro. Isso não pode ser alterado.");
   if (alvo.ativo !== 1) return respostaErro(c, 409, "Este usuário está desativado. Reative-o antes de alterar o acesso.");

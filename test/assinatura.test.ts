@@ -83,6 +83,7 @@ const ESCRITAS: [string, string][] = [
   ["POST", "/api/equipe/convites"],
   ["PATCH", "/api/equipe/usuarios/x"],
   ["DELETE", "/api/equipe/convites/x"],
+  ["DELETE", "/api/equipe/usuarios/x"],
   ["DELETE", "/api/financeiro/x"],
   ["POST", "/api/financeiro/grupos/x/cancelar-abertas"],
   ["POST", "/api/portal-gestao/clientes/x/convites"],

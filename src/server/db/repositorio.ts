@@ -47,6 +47,8 @@ export interface LinhaUsuario {
   tentativas_falhas: number;
   bloqueado_ate: string | null;
   ativo: number;
+  /** Preenchido quando o sócio exclui o usuário da equipe (o registro fica para o histórico). */
+  excluido_em: string | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -986,7 +988,7 @@ const TABELAS: Readonly<Record<TabelaDoEscritorio, ConfigTabela>> = {
 // Colunas aceitas em filtros de leitura (além de tenant_id, que é sempre aplicado).
 const COLUNAS_FILTRO: Readonly<Record<TabelaDoEscritorio, readonly string[]>> = {
   oabs: ["id", "ativo", "user_id", "numero", "uf"],
-  users: ["id", "perfil", "email", "ativo"],
+  users: ["id", "perfil", "email", "ativo", "excluido_em"],
   sessions: ["id", "user_id"],
   tokens_acesso: ["id", "user_id", "tipo"],
   audit_log: ["id", "user_id", "acao", "entidade", "entidade_id"],
@@ -1065,7 +1067,7 @@ export interface EntradaAuditoria {
   ip?: string | null;
 }
 
-export const ACOES_DE_ACESSO = ["login_sucesso", "login_falha", "logout"] as const;
+export const ACOES_DE_ACESSO = ["login_sucesso", "login_falha", "logout", "usuario_excluido", "convite_excluido"] as const;
 
 export interface EntradaAcesso {
   id: string;
@@ -1074,6 +1076,8 @@ export interface EntradaAcesso {
   criado_em: string;
   usuario_nome: string | null;
   usuario_email: string | null;
+  /** Exclusões: nome de quem foi excluído (null quando o convite foi apagado de vez). */
+  alvo_nome: string | null;
 }
 
 export interface Repositorio {
@@ -1105,6 +1109,13 @@ export interface Repositorio {
     contarOcupadas(exceto?: string | null, agoraIso?: string): Promise<{ ativos: number; convites_pendentes: number; total: number }>;
     /** Exclui um convite que ainda não foi aceito (usuário sem senha definida): remove links, permissões e o usuário provisório. */
     excluirConvitePendente(usuarioId: string): Promise<"ok" | "nao_encontrado" | "nao_pendente">;
+    /**
+     * Exclui alguém da equipe, em qualquer situação (ativo, desativado ou convite pendente/expirado).
+     * Convite que nunca foi aceito e sem nenhum registro ligado é apagado de vez ("apagado").
+     * Nos demais casos o registro fica para o histórico ("marcado"): desativado, com `excluido_em`,
+     * sem e-mail, senha, 2FA, sessões, links e permissões. Os dados que a pessoa criou continuam do escritório.
+     */
+    excluirUsuario(usuarioId: string): Promise<{ resultado: "apagado" | "marcado"; nome: string; email: string; convite_pendente: boolean } | "nao_encontrado">;
   };
   /** Clientes. `nome_busca` é calculado aqui a partir de nome e nome fantasia (não vem de fora). */
   clientes: RepositorioTabela<LinhaCliente> & {
@@ -1465,6 +1476,40 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
           db.prepare("DELETE FROM users WHERE id = ? AND tenant_id = ? AND senha_definida = 0").bind(u.id, tid),
         ]);
         return "ok";
+      },
+      async excluirUsuario(usuarioId) {
+        const u = await db
+          .prepare("SELECT id, nome, email, senha_definida FROM users WHERE id = ? AND tenant_id = ? AND excluido_em IS NULL")
+          .bind(usuarioId, tid)
+          .first<{ id: string; nome: string; email: string; senha_definida: number }>();
+        if (!u) return "nao_encontrado";
+        const base = { nome: u.nome, email: u.email, convite_pendente: u.senha_definida === 0 };
+        const limpar = [
+          db.prepare("DELETE FROM sessions WHERE user_id = ? AND tenant_id = ?").bind(u.id, tid),
+          db.prepare("DELETE FROM tokens_acesso WHERE user_id = ? AND tenant_id = ?").bind(u.id, tid),
+          db.prepare("DELETE FROM permissoes_usuario WHERE usuario_id = ? AND tenant_id = ?").bind(u.id, tid),
+          db.prepare("DELETE FROM preferencias_usuario WHERE user_id = ? AND tenant_id = ?").bind(u.id, tid),
+        ];
+        if (u.senha_definida === 0) {
+          try {
+            await db.batch([...limpar, db.prepare("DELETE FROM users WHERE id = ? AND tenant_id = ? AND senha_definida = 0").bind(u.id, tid)]);
+            return { ...base, resultado: "apagado" };
+          } catch {
+            // Convite já ligado a algum registro (ex.: responsável por um prazo): o lote é desfeito e segue a marcação abaixo.
+          }
+        }
+        const ts = agora();
+        await db.batch([
+          ...limpar,
+          db
+            .prepare(
+              `UPDATE users SET ativo = 0, excluido_em = ?, email = ?, senha_hash = '', senha_salt = '', totp_secret = NULL, totp_ativo = 0,
+                 totp_ultimo_passo = NULL, tentativas_falhas = 0, bloqueado_ate = NULL, atualizado_em = ?
+               WHERE id = ? AND tenant_id = ? AND excluido_em IS NULL`,
+            )
+            .bind(ts, `excluido-${u.id}@usuario-excluido.invalid`, ts, u.id, tid),
+        ]);
+        return { ...base, resultado: "marcado" };
       },
     },
     perfil: {
@@ -2516,7 +2561,7 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
             `SELECT u.id, u.nome, u.email, u.perfil, u.senha_definida, p.nivel AS nivel
              FROM users u
              LEFT JOIN permissoes_usuario p ON p.usuario_id = u.id AND p.tenant_id = u.tenant_id AND p.modulo = ?
-             WHERE u.tenant_id = ? AND u.ativo = 1 AND u.perfil IS NOT NULL
+             WHERE u.tenant_id = ? AND u.ativo = 1 AND u.excluido_em IS NULL AND u.perfil IS NOT NULL
              ORDER BY u.nome COLLATE NOCASE, u.id`,
           )
           .bind(modulo, tid)
@@ -2732,9 +2777,11 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
         const { results } = await db
           .prepare(
             `SELECT a.id AS id, a.acao AS acao, a.ip AS ip, a.criado_em AS criado_em,
-                    u.nome AS usuario_nome, u.email AS usuario_email
+                    u.nome AS usuario_nome, CASE WHEN u.excluido_em IS NULL THEN u.email END AS usuario_email,
+                    CASE WHEN a.entidade = 'users' THEN x.nome END AS alvo_nome
              FROM audit_log a
              LEFT JOIN users u ON u.id = a.user_id AND u.tenant_id = a.tenant_id
+             LEFT JOIN users x ON x.id = a.entidade_id AND x.tenant_id = a.tenant_id AND a.entidade = 'users'
              WHERE a.tenant_id = ? AND a.acao IN (${ACOES_DE_ACESSO.map(() => "?").join(", ")})
              ORDER BY a.criado_em DESC, a.id DESC LIMIT ? OFFSET ?`,
           )

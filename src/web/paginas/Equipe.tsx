@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, Clock, Lock, LogIn, LogOut, Plus, ShieldAlert, ShieldCheck, UsersRound, MailQuestion, UserX } from "lucide-react";
+import { CircleCheck, CircleX, Clock, Lock, LogIn, LogOut, MailX, Plus, ShieldAlert, ShieldCheck, UserMinus, UsersRound, MailQuestion, UserX } from "lucide-react";
 import { CONVITE_CONFIRMAR_EXCLUSAO, conviteExcluidoAviso } from "../../comum/textos-assinatura";
 import { useCallback, useEffect, useState } from "react";
 import { ErroApi, ROTULO_NIVEL_ACESSO, ROTULO_PERFIL, api, formatarData } from "../api";
@@ -42,12 +42,16 @@ interface Acesso {
   criado_em: string;
   usuario_nome: string | null;
   usuario_email: string | null;
+  /** Exclusões: nome de quem foi excluído (null quando o convite foi apagado de vez). */
+  alvo_nome: string | null;
 }
 
 const ROTULO_ACAO: Record<string, { texto: string; tom: TomSelo; icone: LucideIcon }> = {
   login_sucesso: { texto: "Entrou", tom: "bom", icone: LogIn },
   login_falha: { texto: "Tentativa de entrada recusada", tom: "critico", icone: CircleX },
   logout: { texto: "Saiu", tom: "neutro", icone: LogOut },
+  usuario_excluido: { texto: "Excluiu um usuário", tom: "aviso", icone: UserMinus },
+  convite_excluido: { texto: "Excluiu um convite", tom: "neutro", icone: MailX },
 };
 const PERFIS = Object.keys(ROTULO_PERFIL) as Perfil[];
 
@@ -71,7 +75,7 @@ export function Equipe() {
   const [erroPermissoes, setErroPermissoes] = useState("");
   const [salvando, setSalvando] = useState<string | null>(null);
   const [desativando, setDesativando] = useState<Membro | null>(null);
-  const [excluindoConvite, setExcluindoConvite] = useState<Membro | null>(null);
+  const [excluindo, setExcluindo] = useState<Membro | null>(null);
   const [vagas, setVagas] = useState<Vagas | null>(null);
 
   const carregar = useCallback(async () => {
@@ -221,32 +225,30 @@ export function Equipe() {
       titulo: "Ações",
       acoes: true,
       render: (m) => {
-        const euMesmo = m.id === eu?.usuario.id;
-        if (m.ativo && m.convite_pendente)
-          return (
-            <div className="tabela-acoes">
-              <Botao tamanho="pequeno" variante="perigo" onClick={() => setExcluindoConvite(m)} aria-label={`Excluir o convite de ${m.email}`}>
-                Excluir convite
-              </Botao>
-            </div>
-          );
-        if (m.ativo && !euMesmo)
-          return (
-            <div className="tabela-acoes">
-              <Botao tamanho="pequeno" variante="perigo" onClick={() => setDesativando(m)}>
+        // O sócio não age sobre o próprio usuário (assim o escritório nunca fica sem sócio).
+        if (m.id === eu?.usuario.id) return null;
+        return (
+          <div className="tabela-acoes">
+            {m.ativo && !m.convite_pendente && (
+              <Botao tamanho="pequeno" variante="secundario" onClick={() => setDesativando(m)}>
                 Desativar
               </Botao>
-            </div>
-          );
-        if (!m.ativo)
-          return (
-            <div className="tabela-acoes">
+            )}
+            {!m.ativo && (
               <Botao tamanho="pequeno" onClick={() => void executar(async () => void (await api("POST", `/api/equipe/usuarios/${m.id}/reativar`)), `${m.nome} reativado.`)}>
                 Reativar
               </Botao>
-            </div>
-          );
-        return null;
+            )}
+            <Botao
+              tamanho="pequeno"
+              variante="perigo"
+              onClick={() => setExcluindo(m)}
+              aria-label={m.convite_pendente ? `Excluir o convite de ${m.email}` : `Excluir ${m.nome} da equipe`}
+            >
+              {m.convite_pendente ? "Excluir convite" : "Excluir"}
+            </Botao>
+          </div>
+        );
       },
     },
   ];
@@ -259,7 +261,16 @@ export function Equipe() {
       titulo: "O que aconteceu",
       render: (a) => {
         const r = ROTULO_ACAO[a.acao];
-        return r ? <Selo tom={r.tom} icone={r.icone}>{r.texto}</Selo> : a.acao;
+        if (!r) return a.acao;
+        const selo = <Selo tom={r.tom} icone={r.icone}>{r.texto}</Selo>;
+        return a.alvo_nome ? (
+          <div>
+            {selo}
+            <div className="texto-pequeno">{a.alvo_nome}</div>
+          </div>
+        ) : (
+          selo
+        );
       },
     },
     { chave: "ip", titulo: "IP", render: (a) => a.ip ?? "—" },
@@ -282,7 +293,7 @@ export function Equipe() {
   ) : acessos === null ? (
     <EsqueletoLinhas linhas={5} />
   ) : acessos.length === 0 ? (
-    <EstadoVazio compacto titulo="Nenhum registro ainda">Entradas e saídas da equipe aparecem aqui.</EstadoVazio>
+    <EstadoVazio compacto titulo="Nenhum registro ainda">Entradas, saídas e exclusões da equipe aparecem aqui.</EstadoVazio>
   ) : (
     <>
       <Tabela colunas={colunasAcessos} linhas={acessos} chaveLinha={(a) => a.id} legenda="Log de acessos" />
@@ -451,20 +462,33 @@ export function Equipe() {
       </Modal>
 
       <Confirmar
-        aberto={excluindoConvite !== null}
-        aoFechar={() => setExcluindoConvite(null)}
-        titulo="Excluir convite"
-        rotuloConfirmar="Excluir convite"
+        aberto={excluindo !== null}
+        aoFechar={() => setExcluindo(null)}
+        titulo={excluindo?.convite_pendente ? "Excluir convite" : "Excluir usuário"}
+        rotuloConfirmar={excluindo?.convite_pendente ? "Excluir convite" : "Excluir usuário"}
         perigo
         aoConfirmar={() => {
-          const m = excluindoConvite;
+          const m = excluindo;
           if (!m) return;
-          setExcluindoConvite(null);
-          void executar(async () => void (await api("DELETE", `/api/equipe/convites/${m.id}`)), conviteExcluidoAviso(m.email));
-          void carregarPermissoes();
+          setExcluindo(null);
+          void executar(
+            async () => {
+              await api("DELETE", `/api/equipe/usuarios/${m.id}`);
+              await carregarPermissoes();
+            },
+            m.convite_pendente ? conviteExcluidoAviso(m.email) : `${m.nome} foi excluído da equipe.`,
+          );
         }}
       >
-        Excluir o convite de {excluindoConvite?.email}? {CONVITE_CONFIRMAR_EXCLUSAO}
+        {excluindo?.convite_pendente ? (
+          <>
+            Excluir o convite de {excluindo.email}? {CONVITE_CONFIRMAR_EXCLUSAO}
+          </>
+        ) : (
+          <>
+            Excluir {excluindo?.nome} ({excluindo?.email}) da equipe? A pessoa será desconectada e não poderá mais entrar. Processos, prazos, compromissos e lançamentos que ela criou continuam no escritório, e a vaga do plano fica livre. Isso não pode ser desfeito: para ela voltar, será preciso um novo convite.
+          </>
+        )}
       </Confirmar>
 
       <Confirmar

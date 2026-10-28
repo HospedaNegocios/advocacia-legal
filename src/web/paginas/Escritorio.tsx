@@ -7,6 +7,7 @@ import { mascaraCep, mascaraDocumento, mascaraTelefone, soDigitos } from "../mas
 import { useSessao } from "../sessao";
 import { Abas, Aviso, Botao, CabecalhoPagina, Cartao, Confirmar, Entrada, EsqueletoLinhas, EstadoErro, EstadoVazio, Formulario, Medidor, Modal, Selecao, Selo, Tabela, useToast } from "../ui";
 import type { Coluna } from "../ui";
+import { AbaCalendario } from "./CalendarioEscritorio";
 
 const UFS = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
@@ -393,14 +394,16 @@ function AbaOabs({ podeEditar }: { podeEditar: boolean }) {
 export function Escritorio() {
   const { eu } = useSessao();
   const podeEditar = eu?.usuario.perfil === "socio";
+  const podeEditarCalendario = eu?.usuario.perfil === "socio" || eu?.usuario.perfil === "advogado";
   return (
     <>
-      <CabecalhoPagina titulo="Escritório" descricao="Dados do escritório e as OABs monitoradas." migalhas={[{ rotulo: "Início", para: "/" }, { rotulo: "Escritório" }]} />
+      <CabecalhoPagina titulo="Escritório" descricao="Dados do escritório, as OABs monitoradas e o calendário de dias sem expediente." migalhas={[{ rotulo: "Início", para: "/" }, { rotulo: "Escritório" }]} />
       <Cartao>
         <Abas
           abas={[
             { id: "dados", rotulo: "Dados", conteudo: <AbaDados podeEditar={podeEditar} /> },
             { id: "oabs", rotulo: "OABs", conteudo: <AbaOabs podeEditar={podeEditar} /> },
+            { id: "calendario", rotulo: "Calendário", conteudo: <AbaCalendario podeEditar={podeEditarCalendario} /> },
           ]}
         />
       </Cartao>

@@ -4,6 +4,7 @@ import { useSessao } from "../sessao";
 import { AreaTexto, Aviso, Botao, Entrada, Formulario, Modal, Selecao, SeletorBusca } from "../ui";
 import { buscarProcessos } from "./buscas";
 import type { Prazo, UsuarioBasico } from "./agenda-comum";
+import { CalculoPrazo } from "./CalculoPrazo";
 import { cnjFormatado } from "./processos-comum";
 
 interface Campos {
@@ -66,9 +67,10 @@ export function PrazoFormulario({ aberto, prazo, processoFixo, usuarios, aoFecha
   };
 
   return (
-    <Modal aberto={aberto} aoFechar={aoFechar} titulo={prazo ? "Editar prazo" : "Novo prazo"} descricao="Título, data fatal e responsável são obrigatórios. Os dias são contados no calendário comum, sem descontar feriados.">
+    <Modal aberto={aberto} aoFechar={aoFechar} titulo={prazo ? "Editar prazo" : "Novo prazo"} descricao="Título, data fatal e responsável são obrigatórios. Se quiser, use o botão Calcular data final para contar dias úteis; a data fatal pode sempre ser alterada à mão.">
       <Formulario aoEnviar={() => void salvar()}>
         <Entrada rotulo="Título" required maxLength={200} autoComplete="off" placeholder="Ex.: Contestação" erro={mostrar("titulo")} value={f.titulo} onChange={(e) => setF({ ...f, titulo: e.target.value })} />
+        <CalculoPrazo aoUsar={(d) => setF((atual) => ({ ...atual, data_fatal: d }))} />
         <div className="grade grade-2">
           <Entrada rotulo="Data fatal" type="date" required erro={mostrar("data_fatal")} value={f.data_fatal} onChange={(e) => setF({ ...f, data_fatal: e.target.value })} />
           <Entrada rotulo="Hora (opcional)" type="time" value={f.hora} onChange={(e) => setF({ ...f, hora: e.target.value })} />

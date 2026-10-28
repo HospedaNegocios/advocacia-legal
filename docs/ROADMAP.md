@@ -29,3 +29,7 @@ Cada fase termina com testes passando, deploy em dev e revisão (Opus). Desenvol
 - Termos de Uso e Política de Privacidade — **minutas feitas**, aguardam revisão por advogado, endereço e DPO
 - Exportação e exclusão de dados (90 dias) — a fazer
 
+## Fase 5 — Prazos em dias úteis
+- Cálculo da data final do prazo (dias úteis ou corridos, CPC arts. 219, 220, 224 e 231) com explicação passo a passo, feriados nacionais por lei e calendário do escritório (feriado local, suspensão de tribunal) — **feito, não publicado** (branch `fase5-dias-uteis`, ver docs/PRAZOS.md). Regras e fontes registradas; pendências de interpretação aguardam o advogado
+- Fora desta fase: prazo em dobro, regras especiais (Juizados, trabalhista), consulta automática em 10 dias, calendário por comarca
+

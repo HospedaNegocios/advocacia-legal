@@ -501,6 +501,21 @@ export interface PontoMensal {
   pago_centavos: number;
 }
 
+// ---------- Calendário do escritório (dias sem expediente) ----------
+
+export const TIPOS_DIA_CALENDARIO = ["feriado_local", "suspensao_tribunal", "outro"] as const;
+export type TipoDiaCalendario = (typeof TIPOS_DIA_CALENDARIO)[number];
+
+export interface LinhaDiaCalendario {
+  id: string;
+  tenant_id: string;
+  data: string;
+  descricao: string;
+  tipo: TipoDiaCalendario;
+  criado_por: string | null;
+  criado_em: string;
+}
+
 // ---------- Prazos e agenda ----------
 
 export const STATUS_PRAZO = ["a_fazer", "em_andamento", "aguardando", "concluido"] as const;
@@ -717,6 +732,7 @@ interface LinhasPorTabela {
   eventos_agenda: LinhaEvento;
   eventos_participantes: LinhaParticipante;
   lancamentos: LinhaLancamento;
+  calendario_dias: LinhaDiaCalendario;
 }
 export type TabelaDoEscritorio = keyof LinhasPorTabela;
 
@@ -843,6 +859,12 @@ const TABELAS: Readonly<Record<TabelaDoEscritorio, ConfigTabela>> = {
     temAtualizadoEm: true,
     imutavel: false,
   },
+  calendario_dias: {
+    inserivel: ["id", "data", "descricao", "tipo", "criado_por", "criado_em"],
+    atualizavel: [],
+    temAtualizadoEm: false,
+    imutavel: false,
+  },
 };
 
 // Colunas aceitas em filtros de leitura (além de tenant_id, que é sempre aplicado).
@@ -864,6 +886,7 @@ const COLUNAS_FILTRO: Readonly<Record<TabelaDoEscritorio, readonly string[]>> = 
   eventos_agenda: ["id", "tipo", "processo_id", "cliente_id", "criado_por"],
   eventos_participantes: ["id", "evento_id", "user_id"],
   lancamentos: ["id", "tipo", "status", "cliente_id", "processo_id"],
+  calendario_dias: ["id", "data", "tipo"],
 };
 
 const LIMITE_PADRAO = 50;
@@ -1011,6 +1034,11 @@ export interface Repositorio {
    * Lançamentos do financeiro (receitas e despesas). `descricao_busca` é calculada aqui.
    * As mudanças de situação são atômicas: só valem se o lançamento ainda está na situação esperada (devolvem false se não).
    */
+  /** Dias sem expediente cadastrados pelo escritório. Uma data por escritório (a segunda dá erro UNIQUE). */
+  calendario: RepositorioTabela<LinhaDiaCalendario> & {
+    /** Ordenado por data; `de` e `ate` (AAAA-MM-DD) são opcionais. */
+    doPeriodo(de?: string, ate?: string): Promise<LinhaDiaCalendario[]>;
+  };
   lancamentos: RepositorioTabela<LinhaLancamento> & {
     pesquisar(filtro?: FiltroLancamentos): Promise<{ itens: LancamentoDetalhado[]; total: number }>;
     buscarDetalhado(id: string): Promise<LancamentoDetalhado | null>;
@@ -1228,6 +1256,7 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
   const prazosBase = montarTabela(db, tid, "prazos");
   const eventosBase = montarTabela(db, tid, "eventos_agenda");
   const lancamentosBase = montarTabela(db, tid, "lancamentos");
+  const calendarioBase = montarTabela(db, tid, "calendario_dias");
 
   return {
     tenantId: tid,
@@ -1597,6 +1626,26 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
           .bind(status, status === "concluido" ? agoraIso : null, agoraIso, id, tid)
           .run();
         return r.meta.changes > 0;
+      },
+    },
+    calendario: {
+      ...calendarioBase,
+      async doPeriodo(de, ate) {
+        const condicoes = ["tenant_id = ?"];
+        const params: Valor[] = [tid];
+        if (de) {
+          condicoes.push("data >= ?");
+          params.push(de);
+        }
+        if (ate) {
+          condicoes.push("data <= ?");
+          params.push(ate);
+        }
+        const { results } = await db
+          .prepare(`SELECT * FROM calendario_dias WHERE ${condicoes.join(" AND ")} ORDER BY data LIMIT 2000`)
+          .bind(...params)
+          .all<LinhaDiaCalendario>();
+        return results;
       },
     },
     lancamentos: {

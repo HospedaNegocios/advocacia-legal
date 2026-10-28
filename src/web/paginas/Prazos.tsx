@@ -228,7 +228,7 @@ export function Prazos() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Prazos" descricao="Prazos fatais do escritório em quadro por situação. Os dias são contados no calendário de Brasília, sem descontar feriados." migalhas={[{ rotulo: "Início", para: "/" }, { rotulo: "Prazos" }]} acoes={botaoNovo} />
+      <CabecalhoPagina titulo="Prazos" descricao="Prazos fatais do escritório em quadro por situação. A data fatal é digitada pelo advogado; ao criar um prazo você pode calcular a data em dias úteis." migalhas={[{ rotulo: "Início", para: "/" }, { rotulo: "Prazos" }]} acoes={botaoNovo} />
 
       <section aria-label="Resumo dos prazos" className="grade grade-kpi">
         {resumo ? (

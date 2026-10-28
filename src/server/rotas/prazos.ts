@@ -7,6 +7,9 @@ import { exigirSessao } from "../sessao";
 import { lerJson, respostaErro } from "../validacao";
 import { dataCivilAceita, ehStatusPrazo, validarPrazo } from "../validacao-agenda";
 import { conferirProcesso, conferirUsuario, hojeDoEscritorio, prazoPublico } from "./agenda-comum";
+import { calcularPrazo, TIPOS_INICIO } from "../../comum/prazos-uteis";
+import type { TipoContagem, TipoInicio } from "../../comum/prazos-uteis";
+import { somarDias } from "../../comum/fuso";
 import { numeroPositivo, registrar, repoDaSessao } from "./comum";
 
 // Prazos do escritório (Kanban). Todos os perfis criam, editam e movem; só o sócio apaga (com registro na auditoria).
@@ -64,6 +67,40 @@ rotasPrazos.post("/", async (c) => {
   await registrar(c, "prazo_criado", "prazos", id, { status: v.status, com_processo: v.dados.processo_id !== null });
   const criado = await repo.prazos.buscarDetalhado(id);
   return c.json({ ok: true, prazo: criado ? prazoPublico(criado, hojeDoEscritorio()) : null }, 201);
+});
+
+// Somente cálculo: não grava nada e não altera nenhum prazo. O advogado confere e escolhe se usa a data.
+rotasPrazos.post("/calcular", async (c) => {
+  const corpo = await lerJson(c);
+  if (typeof corpo.data !== "string" || !dataCivilAceita(corpo.data)) return respostaErro(c, 400, "Informe uma data válida.");
+  if (typeof corpo.tipo_inicio !== "string" || !(TIPOS_INICIO as readonly string[]).includes(corpo.tipo_inicio)) return respostaErro(c, 400, "Tipo de início inválido.");
+  if (corpo.contagem !== "uteis" && corpo.contagem !== "corridos") return respostaErro(c, 400, "Escolha dias úteis ou corridos.");
+  if (typeof corpo.dias !== "number") return respostaErro(c, 400, "Informe a quantidade de dias.");
+  if (corpo.aplicar_suspensao !== undefined && typeof corpo.aplicar_suspensao !== "boolean") return respostaErro(c, 400, "Informe aplicar_suspensao como verdadeiro ou falso.");
+  // O calendário do escritório vem da sessão; só a janela de datas relevante é lida.
+  const dias = await repoDaSessao(c).calendario.doPeriodo(corpo.data, somarDias(corpo.data, 1100));
+  const r = calcularPrazo({
+    data: corpo.data,
+    tipoInicio: corpo.tipo_inicio as TipoInicio,
+    dias: corpo.dias,
+    contagem: corpo.contagem as TipoContagem,
+    calendario: dias.map((d) => ({ data: d.data, descricao: d.descricao, tipo: d.tipo })),
+    ...(corpo.aplicar_suspensao === false ? { aplicarSuspensao: false } : {}),
+  });
+  if (!r.ok) return respostaErro(c, 400, r.erro);
+  const x = r.resultado;
+  return c.json({
+    ok: true,
+    resultado: {
+      data_final: x.dataFinal,
+      dia_do_comeco: x.diaDoComeco,
+      primeiro_dia_contado: x.primeiroDiaContado,
+      dias_contados: x.diasContados,
+      pulados: x.pulados,
+      passos: x.passos,
+      avisos: x.avisos,
+    },
+  });
 });
 
 rotasPrazos.get("/:id", async (c) => {

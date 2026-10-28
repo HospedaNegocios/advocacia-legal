@@ -11,7 +11,7 @@ import { aliasDoTribunal } from "./tribunal";
 
 export const INTERVALO_MINIMO_MS = 1000;
 export const TENTATIVAS = 3;
-export const TENTATIVAS_MANUAL = 2;
+export const TENTATIVAS_MANUAL = 1;
 export const ESPERA_BASE_MS = 2000;
 /** Quem foi consultado há menos que isto não é consultado de novo pelo Cron. */
 export const RECENTE_CRON_MS = 20 * 3_600_000;

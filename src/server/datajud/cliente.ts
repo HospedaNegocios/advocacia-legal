@@ -2,7 +2,7 @@
 // A chave pública vem do Worker secret DATAJUD_CHAVE; nunca é gravada em código nem em log.
 
 export const URL_BASE_DATAJUD = "https://api-publica.datajud.cnj.jus.br";
-const TEMPO_LIMITE_MS = 15_000;
+const TEMPO_LIMITE_MS = 40_000;
 
 export type RespostaDatajud =
   | { tipo: "ok"; status: number; hits: unknown[] }

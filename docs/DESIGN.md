@@ -25,6 +25,7 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | `src/web/estilo/agenda.css` | Kanban de prazos, Agenda e Início |
 | `src/web/portal/`, `src/web/estilo/portal.css` | Portal do cliente (rota `/portal`): casca própria (marca, tema, Sair), login, convite, lista e detalhe do processo. Mesmos tokens e componentes de `ui`; aviso fixo "As informações são um resumo..." em todas as telas |
 | `src/web/paginas/PortalGestao.tsx` | Controles do escritório: cartão "Portal do cliente" no processo, botão por andamento e aba "Portal" do cliente |
+| `site/public/estilo.css` | Site de vendas: tokens copiados de `tokens.css` (repetir mudanças), claro/escuro automático, sem JS; ver `docs/SITE.md` |
 | `src/web/painel.ts` | Cálculos do painel do dono (com testes em `test/painel-calculos.test.ts`) |
 
 ## Tokens

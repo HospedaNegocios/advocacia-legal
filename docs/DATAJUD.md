@@ -38,3 +38,7 @@ A chave de acesso é **pública**, publicada pelo CNJ na wiki oficial do DataJud
 - **Atraso dos dados** em relação aos autos.
 - **Se o Worker é bloqueado** (como relatado para o DJEN com IPs de fora do Brasil). Testar a chamada a partir do Worker em dev.
 - Se os nomes dos aliases estão todos corretos para tribunais menos comuns (Justiça Militar estadual, TREs).
+
+## Diagnóstico de conexão
+
+Na tela **Diagnóstico** (só o dono) há o botão "Testar DataJud": `POST /api/plataforma/diagnostico/datajud` faz, em paralelo, três chamadas de 20 s no máximo (busca de 1 item no TJDFT e no TJSP com a chave, e um GET simples na raiz sem chave) e mostra código, tempo e erro de cada uma, sem guardar o conteúdo nem mostrar a chave; limite de 1 teste a cada 10 s.

@@ -1,0 +1,29 @@
+// Worker do SITE DE VENDAS (advocacia.legal). Separado do Worker do app (wrangler.jsonc na raiz).
+// Só arquivos estáticos (pasta public/): sem código, sem banco, sem R2, sem segredos.
+// Use sempre --env dev ou --env prod, a partir da raiz: npx wrangler deploy -c site/wrangler.jsonc --env dev
+// Nomes começam com "advocacia-legal" (regra do CLAUDE.md: não mexer em recursos de outros projetos).
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./public",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "env": {
+    "dev": {
+      "name": "advocacia-legal-site-dev",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [{ "pattern": "dev.advocacia.legal", "custom_domain": true }]
+    },
+    "prod": {
+      "name": "advocacia-legal-site",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [{ "pattern": "advocacia.legal", "custom_domain": true }]
+    }
+  }
+}

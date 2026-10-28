@@ -25,6 +25,7 @@ Cada fase termina com testes passando, deploy em dev e revisão (Opus). Desenvol
 - Portal do cliente (marca advocacia.legal) — **feito, com regras provisórias** (branch `fase3-portal`, ver docs/PORTAL.md): acesso por convite, sessão própria, processos, andamentos, resumos aprovados e documentos só depois de publicados pelo escritório. Falta confirmar as regras provisórias (2FA do cliente, consentimento, envio por e-mail)
 
 ## Fase 4 — Site de vendas e LGPD
-- `advocacia.legal`: planos, WhatsApp, e-mail comercial, sem formulário
-- Termos de Uso, Política de Privacidade, exportação e exclusão de dados (90 dias)
+- `advocacia.legal`: planos, WhatsApp, e-mail comercial, sem formulário — **feito, não publicado** (branch `fase4-site`, ver docs/SITE.md)
+- Termos de Uso e Política de Privacidade — **minutas feitas**, aguardam revisão por advogado, endereço e DPO
+- Exportação e exclusão de dados (90 dias) — a fazer
 

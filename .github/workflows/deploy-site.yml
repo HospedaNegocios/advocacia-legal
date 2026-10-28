@@ -1,0 +1,58 @@
+name: Deploy do site
+
+# Site de vendas (pasta site/). Mesma regra do app: develop -> dev.advocacia.legal | main -> advocacia.legal.
+# O deploy de produção só acontece quando alguém junta a branch na main (ou seja, depois do OK do dono).
+# Segredos: CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID (os mesmos do app).
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "site/**"
+      - ".github/workflows/deploy-site.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  site-dev:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: deploy-site-develop
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Impedir que buscadores indexem o site de dev
+        run: printf '\n/*\n  X-Robots-Tag: noindex, nofollow\n' >> site/public/_headers
+      - name: Publicar site (dev)
+        run: npx wrangler deploy -c site/wrangler.jsonc --env dev
+
+  site-prod:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: deploy-site-main
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Publicar site (prod)
+        run: npx wrangler deploy -c site/wrangler.jsonc --env prod

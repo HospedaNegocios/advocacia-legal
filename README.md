@@ -18,6 +18,10 @@ Precisa de Node 22 instalado.
 
 Publicação é automática pelo GitHub: `develop` publica em dev (`dev.app.advocacia.legal`) e `main` publica em prod (`app.advocacia.legal`). Os segredos `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` ficam nos GitHub Secrets.
 
+## Site de vendas
+
+Fica em `site/` (arquivos estáticos, sem build). Publicação automática pelo workflow `deploy-site`: `develop` publica em `dev.advocacia.legal` e `main` publica em `advocacia.legal`, **só quando algo em `site/` mudar**. Nada vai para produção sem juntar a branch na `main`. Detalhes e pendências: `docs/SITE.md`.
+
 ## Primeiro acesso do dono (passo a passo, sem programar)
 
 Depois que a `develop` foi publicada (o deploy automático também prepara o banco), faça no GitHub, em **Actions**:

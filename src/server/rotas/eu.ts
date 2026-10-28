@@ -5,6 +5,7 @@ import { exigirSessao, nivelNoModulo } from "../sessao";
 import { CODIGO_SOMENTE_LEITURA, assinaturaDoUsuario } from "../assinatura";
 import { MENSAGEM_SOMENTE_LEITURA } from "../../comum/assinatura";
 import { respostaErro } from "../validacao";
+import { datajudAtivo } from "../datajud/ambiente";
 import { registrar, repoDaSessao } from "./comum";
 
 export const rotasEu = new Hono<{ Bindings: Env; Variables: Variaveis }>();
@@ -54,6 +55,8 @@ rotasEu.get("/", exigirSessao({ permitirPendente: true }), async (c) => {
     // A API continua conferindo a cada requisição.
     permissoes: { financeiro: pendente2fa ? "nenhum" : await nivelNoModulo(c, "financeiro") },
     pendente_2fa: pendente2fa,
+    // Recursos ligados neste ambiente (a tela decide se mostra a aba; a API confere a cada requisição).
+    recursos: { datajud: !pendente2fa && usuario.tenant_id !== null && datajudAtivo(c.env) },
   });
 });
 

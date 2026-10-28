@@ -122,3 +122,21 @@
 .inicio-item-texto { display: grid; gap: 2px; min-width: 0; flex: 1 1 12rem; overflow-wrap: anywhere; }
 .inicio-item-texto small { color: var(--cor-texto-2); font-size: var(--texto-xs); }
 .inicio-vazio { margin: 0; color: var(--cor-texto-2); font-size: var(--texto-sm); }
+
+/* ---------- Cálculo de prazo e calendário do escritório ---------- */
+.calc-prazo-abrir { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e-3); }
+.calc-prazo { display: grid; gap: var(--e-3); padding: var(--e-4); border: 1px solid var(--cor-borda); border-radius: var(--raio-lg); background: var(--cor-superficie-2); min-width: 0; }
+.calc-prazo-cabeca { display: flex; align-items: center; justify-content: space-between; gap: var(--e-2); }
+.calc-prazo-cabeca h3 { display: inline-flex; align-items: center; gap: var(--e-2); font-size: var(--texto-base); }
+.calc-resultado { display: grid; gap: var(--e-3); padding-top: var(--e-3); border-top: 1px solid var(--cor-borda); }
+.calc-resultado h4 { font-size: var(--texto-sm); }
+.calc-final { display: grid; gap: var(--e-1); margin: 0; }
+.calc-final span { color: var(--cor-texto-2); font-size: var(--texto-sm); }
+.calc-final strong { font-size: var(--texto-xl); overflow-wrap: anywhere; }
+.calc-passos { margin: 0; padding-left: var(--e-5); display: grid; gap: var(--e-2); font-size: var(--texto-sm); overflow-wrap: anywhere; }
+.calc-passos .calc-passo-sub { margin-left: var(--e-4); color: var(--cor-texto-2); }
+.barra-calendario { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--e-3); }
+.calc-titulo-secao { font-size: var(--texto-base); margin: var(--e-2) 0 0; }
+.lista-feriados { margin: 0; padding-left: var(--e-5); display: grid; gap: var(--e-1); font-size: var(--texto-sm); }
+.grade-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1023.98px) { .grade-3 { grid-template-columns: minmax(0, 1fr); } }

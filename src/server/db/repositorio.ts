@@ -428,6 +428,8 @@ export interface LinhaDatajudConsulta {
   resultado: ResultadoDatajud;
   status_http: number | null;
   alias: string | null;
+  /** Detalhe técnico curto do último erro ou bloqueio; nulo quando a consulta deu certo. */
+  observacao: string | null;
   ultima_atualizacao_fonte: string | null;
   classe: string | null;
   orgao: string | null;
@@ -459,6 +461,7 @@ export interface RegistroConsultaDatajud {
   resultado: ResultadoDatajud;
   status_http: number | null;
   alias: string | null;
+  observacao?: string | null;
   ultima_atualizacao_fonte?: string | null;
   classe?: string | null;
   orgao?: string | null;
@@ -2372,12 +2375,12 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
       async registrarConsulta(processoId, d) {
         await db
           .prepare(
-            `INSERT INTO datajud_consultas (id, tenant_id, processo_id, consultado_em, resultado, status_http, alias, ultima_atualizacao_fonte, classe, orgao, grau, total_movimentos, criado_em, atualizado_em)
-             SELECT ?, p.tenant_id, p.id, ?, ?, ?, ?, ?, ?, ?, ?,
+            `INSERT INTO datajud_consultas (id, tenant_id, processo_id, consultado_em, resultado, status_http, alias, observacao, ultima_atualizacao_fonte, classe, orgao, grau, total_movimentos, criado_em, atualizado_em)
+             SELECT ?, p.tenant_id, p.id, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     (SELECT COUNT(*) FROM datajud_movimentos m WHERE m.tenant_id = p.tenant_id AND m.processo_id = p.id), ?, ?
              FROM processos p WHERE p.tenant_id = ? AND p.id = ?
              ON CONFLICT (tenant_id, processo_id) DO UPDATE SET
-               consultado_em = excluded.consultado_em, resultado = excluded.resultado, status_http = excluded.status_http, alias = excluded.alias,
+               consultado_em = excluded.consultado_em, resultado = excluded.resultado, status_http = excluded.status_http, alias = excluded.alias, observacao = excluded.observacao,
                ultima_atualizacao_fonte = COALESCE(excluded.ultima_atualizacao_fonte, datajud_consultas.ultima_atualizacao_fonte),
                classe = COALESCE(excluded.classe, datajud_consultas.classe),
                orgao = COALESCE(excluded.orgao, datajud_consultas.orgao),
@@ -2385,7 +2388,7 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
                total_movimentos = excluded.total_movimentos, atualizado_em = excluded.atualizado_em`,
           )
           .bind(
-            crypto.randomUUID(), d.consultado_em, d.resultado, d.status_http, d.alias, d.ultima_atualizacao_fonte ?? null, d.classe ?? null, d.orgao ?? null, d.grau ?? null,
+            crypto.randomUUID(), d.consultado_em, d.resultado, d.status_http, d.alias, d.observacao ?? null, d.ultima_atualizacao_fonte ?? null, d.classe ?? null, d.orgao ?? null, d.grau ?? null,
             d.consultado_em, d.consultado_em, tid, processoId,
           )
           .run();

@@ -32,6 +32,8 @@ export interface ResultadoAtualizacao {
   /** Movimentos que ainda não estavam guardados. */
   novos: number;
   status: number | null;
+  /** Texto técnico curto, só em erro ou bloqueio. */
+  motivo?: string;
 }
 
 export interface ResultadoRodadaDatajud {
@@ -88,7 +90,7 @@ export async function atualizarProcesso(rodada: RodadaDatajud, tenantId: string,
   const { db, relogio } = rodada.deps;
   const repo = criarRepositorio(db, tenantId);
   const alias = aliasDoTribunal(numeroCnj);
-  const registrar = (resultado: ResultadoDatajud, status: number | null, extra: { ultima_atualizacao_fonte?: string | null; classe?: string | null; orgao?: string | null; grau?: string | null } = {}) =>
+  const registrar = (resultado: ResultadoDatajud, status: number | null, extra: { observacao?: string | null; ultima_atualizacao_fonte?: string | null; classe?: string | null; orgao?: string | null; grau?: string | null } = {}) =>
     repo.datajud.registrarConsulta(processoId, { consultado_em: new Date(relogio.agora()).toISOString(), resultado, status_http: status, alias, ...extra });
 
   if (!alias) {
@@ -97,19 +99,23 @@ export async function atualizarProcesso(rodada: RodadaDatajud, tenantId: string,
   }
   const r = await rodada.consultar(alias, numeroCnj, tentativas);
   if (r.tipo === "bloqueado") {
-    await registrar("bloqueado", r.status);
-    return { resultado: "bloqueado", novos: 0, status: r.status };
+    await registrar("bloqueado", r.status, { observacao: r.motivo.slice(0, 200) });
+    return { resultado: "bloqueado", novos: 0, status: r.status, motivo: r.motivo };
   }
   if (r.tipo === "erro") {
-    await registrar("erro", r.status);
-    return { resultado: "erro", novos: 0, status: r.status };
+    await registrar("erro", r.status, { observacao: r.motivo.slice(0, 200) });
+    return { resultado: "erro", novos: 0, status: r.status, motivo: r.motivo };
   }
   const lido = await lerHits(r.hits, numeroCnj);
   if (lido.hits_lidos === 0) {
     // Lista vazia = o DataJud não tem o processo (ou ele é sigiloso). Hits que não deu para ler = formato inesperado.
     const vazio = r.hits.length === 0;
-    await registrar(vazio ? "nao_encontrado" : "erro", r.status);
-    return { resultado: vazio ? "nao_encontrado" : "erro", novos: 0, status: r.status };
+    if (vazio) {
+      await registrar("nao_encontrado", r.status);
+      return { resultado: "nao_encontrado", novos: 0, status: r.status };
+    }
+    await registrar("erro", r.status, { observacao: "hits_ilegiveis" });
+    return { resultado: "erro", novos: 0, status: r.status, motivo: "hits_ilegiveis" };
   }
   const novos = await repo.datajud.inserirMovimentos(processoId, lido.movimentos);
   await registrar("ok", r.status, { ultima_atualizacao_fonte: lido.ultima_atualizacao_fonte, classe: lido.classe, orgao: lido.orgao, grau: lido.grau });

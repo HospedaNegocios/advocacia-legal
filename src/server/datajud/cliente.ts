@@ -60,7 +60,11 @@ export function criarClienteHttp(chave: string): ClienteDatajud {
         if (!Array.isArray(hits)) return { tipo: "erro", status: r.status, motivo: "formato_inesperado" };
         return { tipo: "ok", status: r.status, hits };
       } catch (e) {
-        return { tipo: "erro", status: null, motivo: controle.signal.aborted ? "tempo_esgotado" : `rede_${e instanceof Error ? e.name : "desconhecida"}` };
+        if (controle.signal.aborted) return { tipo: "erro", status: null, motivo: `tempo_esgotado_${TEMPO_LIMITE_MS / 1000}s` };
+        // Diagnóstico: nome e mensagem do erro de rede (nunca a chave nem cabeçalhos), em uma linha e cortada.
+        const nome = e instanceof Error ? e.name : "desconhecida";
+        const detalhe = e instanceof Error ? e.message.replace(/\s+/g, " ").trim().slice(0, 150) : "";
+        return { tipo: "erro", status: null, motivo: `rede_${nome}: ${detalhe}`.replace(/APIKey\s+\S+/gi, "APIKey ***").replaceAll(chave || "\u0000", "***") };
       } finally {
         clearTimeout(relogio);
       }

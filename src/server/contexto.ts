@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import type { Env } from "./env";
 import type { UsuarioComEscritorio } from "./db/repositorio";
+import type { UsuarioPortalComContexto } from "./db/portal";
 
 /** Dados da sessão autenticada. O escritório vem SOMENTE daqui. */
 export interface ContextoSessao {
@@ -13,8 +14,17 @@ export interface ContextoSessao {
   tenantId: string | null;
 }
 
+/** Sessão do PORTAL DO CLIENTE (cookie `__Host-portal`, tabela própria). Escritório e cliente vêm SOMENTE daqui. */
+export interface ContextoSessaoPortal {
+  sessaoId: string;
+  usuario: UsuarioPortalComContexto;
+  tenantId: string;
+  clienteId: string;
+}
+
 export interface Variaveis {
   sessao: ContextoSessao;
+  sessaoPortal: ContextoSessaoPortal;
 }
 
 export type Ctx = Context<{ Bindings: Env; Variables: Variaveis }>;

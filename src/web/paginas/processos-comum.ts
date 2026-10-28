@@ -35,6 +35,8 @@ export interface Processo {
   data_distribuicao: string | null;
   observacoes: string | null;
   ativo: boolean;
+  /** O cliente vê este processo no portal. */
+  visivel_portal: boolean;
   criado_em: string;
   atualizado_em: string;
   partes: Parte[];
@@ -48,6 +50,8 @@ export interface Andamento {
   registrado_por: string | null;
   registrado_por_nome: string | null;
   criado_em: string;
+  /** O cliente vê este andamento no portal. */
+  visivel_portal: boolean;
 }
 
 export interface UsuarioDisponivel {

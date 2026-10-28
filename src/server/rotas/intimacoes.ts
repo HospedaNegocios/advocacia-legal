@@ -209,7 +209,7 @@ const exigirRevisor: MiddlewareHandler<{ Bindings: Env; Variables: Variaveis }> 
 
 const resumoPublico = (r: LinhaResumoIa | null) =>
   r
-    ? { id: r.id, texto: r.texto, modelo: r.modelo, situacao: r.situacao, gerado_por: r.gerado_por, decidido_por: r.decidido_por, decidido_em: r.decidido_em, criado_em: r.criado_em, atualizado_em: r.atualizado_em }
+    ? { id: r.id, texto: r.texto, modelo: r.modelo, situacao: r.situacao, gerado_por: r.gerado_por, decidido_por: r.decidido_por, decidido_em: r.decidido_em, criado_em: r.criado_em, atualizado_em: r.atualizado_em, publicado_portal_em: r.publicado_portal_em }
     : null;
 
 async function estadoDoResumo(repo: Repositorio, intimacaoId: string) {

@@ -36,7 +36,7 @@ export function numeroPositivo(v: string | undefined, padrao: number, maximo: nu
   return Number.isInteger(n) && n >= 1 ? Math.min(n, maximo) : padrao;
 }
 
-export const anexoPublico = (l: LinhaAnexo) => ({ id: l.id, nome: l.nome_original, tipo_mime: l.tipo_mime, tamanho_bytes: l.tamanho_bytes, enviado_por: l.enviado_por, criado_em: l.criado_em });
+export const anexoPublico = (l: LinhaAnexo) => ({ id: l.id, nome: l.nome_original, tipo_mime: l.tipo_mime, tamanho_bytes: l.tamanho_bytes, enviado_por: l.enviado_por, criado_em: l.criado_em, compartilhado_cliente: l.compartilhado_cliente === 1 });
 
 // ---------- Anexos (iguais para cliente e processo) ----------
 

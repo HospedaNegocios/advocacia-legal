@@ -1,0 +1,48 @@
+/* Portal do cliente (rota /portal) e blocos de gestão do portal no app do escritório. Só tokens, nenhuma cor solta. */
+
+.portal { min-height: 100vh; background: var(--cor-fundo); display: flex; flex-direction: column; }
+.portal-topo { position: sticky; top: 0; z-index: 20; background: var(--cor-superficie); border-bottom: 1px solid var(--cor-borda); }
+.portal-topo-in { display: flex; align-items: center; gap: var(--e-3); max-width: 62rem; margin: 0 auto; padding: var(--e-2) var(--e-4); min-height: var(--topo-altura); }
+.portal-topo-espaco { flex: 1; }
+.portal-marca { color: var(--cor-texto); font-size: var(--texto-lg); min-width: 0; }
+.portal-marca:hover { color: var(--cor-texto); }
+.portal-marca .marca-selo { width: 2rem; height: 2rem; }
+.portal-marca .marca-texto .ponto { color: inherit; }
+.portal-quem { display: grid; text-align: right; min-width: 0; line-height: 1.25; }
+.portal-quem strong { font-size: var(--texto-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-quem small { color: var(--cor-texto-2); font-size: var(--texto-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-miolo { width: 100%; max-width: 62rem; margin: 0 auto; padding: var(--e-5) var(--e-4) var(--e-10); display: grid; gap: var(--e-5); align-content: start; flex: 1; }
+
+.portal-lista { list-style: none; margin: 0; padding: 0; }
+.portal-lista li + li { border-top: 1px solid var(--cor-borda); }
+.portal-processo { display: flex; align-items: center; gap: var(--e-3); padding: var(--e-4); min-height: 44px; color: var(--cor-texto); text-decoration: none; }
+.portal-processo:hover { background: var(--cor-superficie-2); color: var(--cor-texto); }
+.portal-processo > svg { color: var(--cor-texto-3); flex: none; }
+.portal-processo-texto { display: grid; gap: 2px; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.portal-processo-texto small { color: var(--cor-texto-2); font-size: var(--texto-sm); }
+
+.portal-resumo { display: grid; gap: var(--e-1); padding: var(--e-3) var(--e-4); border: 1px solid var(--cor-borda); border-left: 3px solid var(--cor-marca); border-radius: var(--raio-md); background: var(--cor-superficie); }
+.portal-resumo small { color: var(--cor-texto-2); font-size: var(--texto-xs); }
+.portal-resumo-texto, .portal-texto-livre { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+
+/* Telas de entrada */
+.portal-acesso { min-height: 100vh; display: grid; place-items: center; padding: var(--e-8) var(--e-4); background: var(--cor-fundo); position: relative; }
+.portal-acesso-tema { position: absolute; top: var(--e-4); right: var(--e-4); }
+.portal-acesso-caixa { width: 100%; max-width: 26rem; display: grid; gap: var(--e-5); padding: var(--e-6); background: var(--cor-superficie); border: 1px solid var(--cor-borda); border-radius: var(--raio-lg); box-shadow: var(--sombra-1); }
+.portal-acesso-caixa h1 { font-size: var(--texto-xl); }
+.portal-acesso-desc { margin: var(--e-1) 0 0; color: var(--cor-texto-2); }
+
+@media (max-width: 767.98px) {
+  .portal-quem small { display: none; }
+  .portal-quem { max-width: 7rem; }
+  .portal-topo-in { gap: var(--e-2); padding: var(--e-2) var(--e-3); }
+  .portal-miolo { padding: var(--e-4) var(--e-4) var(--e-8); }
+  .portal-acesso-caixa { padding: var(--e-5); }
+}
+@media (max-width: 479.98px) {
+  /* Em telas bem estreitas o nome do cliente cede lugar aos botões (o texto da marca continua visível). */
+  .portal-quem { display: none; }
+}
+
+/* Gestão do portal no app do escritório (cartão do processo) */
+.portal-gestao-cartao { display: grid; gap: var(--e-3); padding: var(--e-4); border: 1px solid var(--cor-borda); border-radius: var(--raio-md); background: var(--cor-superficie-2); }

@@ -50,6 +50,8 @@ export interface Anexo {
   tipo_mime: string;
   tamanho_bytes: number;
   criado_em: string;
+  /** O cliente pode ver e baixar este arquivo no portal. */
+  compartilhado_cliente: boolean;
 }
 
 export const ROTULO_TIPO = { pf: "Pessoa física", pj: "Pessoa jurídica" } as const;

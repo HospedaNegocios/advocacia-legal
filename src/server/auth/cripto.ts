@@ -74,15 +74,15 @@ export async function verificarDesafio(desafio: string, chaveBase64: string | un
 const PROPOSITO_LINK_ANEXO = "advocacia.legal/link-anexo/v1";
 export const VALIDADE_LINK_ANEXO_MS = 5 * 60 * 1000;
 
-export async function criarLinkAnexo(tenantId: string, anexoId: string, chaveBase64: string | undefined, agoraMs = Date.now()): Promise<string> {
-  const payload = bytesParaBase64Url(textoParaBytes(JSON.stringify({ t: tenantId, a: anexoId, e: agoraMs + VALIDADE_LINK_ANEXO_MS, p: "anexo" })));
+export async function criarLinkAnexo(tenantId: string, anexoId: string, chaveBase64: string | undefined, agoraMs = Date.now(), escopo = "anexo"): Promise<string> {
+  const payload = bytesParaBase64Url(textoParaBytes(JSON.stringify({ t: tenantId, a: anexoId, e: agoraMs + VALIDADE_LINK_ANEXO_MS, p: escopo })));
   const chave = await chaveDeAssinatura(chaveBase64, "sign", PROPOSITO_LINK_ANEXO);
   const assinatura = new Uint8Array(await crypto.subtle.sign("HMAC", chave, textoParaBytes(payload)));
   return `${payload}.${bytesParaBase64Url(assinatura)}`;
 }
 
 /** Confere assinatura, validade, escritório e anexo. Verdadeiro só se tudo bater. */
-export async function verificarLinkAnexo(token: string, tenantId: string, anexoId: string, chaveBase64: string | undefined, agoraMs = Date.now()): Promise<boolean> {
+export async function verificarLinkAnexo(token: string, tenantId: string, anexoId: string, chaveBase64: string | undefined, agoraMs = Date.now(), escopo = "anexo"): Promise<boolean> {
   try {
     const [payload, assinatura] = token.split(".");
     if (!payload || !assinatura) return false;
@@ -90,7 +90,7 @@ export async function verificarLinkAnexo(token: string, tenantId: string, anexoI
     const esperada = new Uint8Array(await crypto.subtle.sign("HMAC", chave, textoParaBytes(payload)));
     if (!iguaisEmTempoConstante(esperada, base64UrlParaBytes(assinatura))) return false;
     const d = JSON.parse(new TextDecoder().decode(base64UrlParaBytes(payload))) as { t?: unknown; a?: unknown; e?: unknown; p?: unknown };
-    return d.p === "anexo" && d.t === tenantId && d.a === anexoId && typeof d.e === "number" && d.e > agoraMs;
+    return d.p === escopo && d.t === tenantId && d.a === anexoId && typeof d.e === "number" && d.e > agoraMs;
   } catch {
     return false;
   }

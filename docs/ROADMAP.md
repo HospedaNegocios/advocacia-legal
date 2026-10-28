@@ -21,7 +21,8 @@ Cada fase termina com testes passando, deploy em dev e revisão (Opus). Desenvol
 ## Fase 3 — Portal e DJEN
 - Teste da API DJEN a partir do Worker (ver docs/DJEN.md)
 - Captura diária por OAB, vinculação por número CNJ
-- Resumo por IA com aprovação — **feito** (branch `fase3-ia`, ver docs/IA.md); falta o portal do cliente (marca advocacia.legal), que publicará só resumos aprovados
+- Resumo por IA com aprovação — **feito** (branch `fase3-ia`, ver docs/IA.md)
+- Portal do cliente (marca advocacia.legal) — **feito, com regras provisórias** (branch `fase3-portal`, ver docs/PORTAL.md): acesso por convite, sessão própria, processos, andamentos, resumos aprovados e documentos só depois de publicados pelo escritório. Falta confirmar as regras provisórias (2FA do cliente, consentimento, envio por e-mail)
 
 ## Fase 4 — Site de vendas e LGPD
 - `advocacia.legal`: planos, WhatsApp, e-mail comercial, sem formulário

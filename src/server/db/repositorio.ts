@@ -195,6 +195,8 @@ export interface LinhaAnexo {
   chave_r2: string;
   enviado_por: string | null;
   criado_em: string;
+  /** 1 = o cliente pode ver e baixar este arquivo no portal (padrão 0). */
+  compartilhado_cliente: number;
 }
 
 export interface LinhaConsentimento {
@@ -231,6 +233,8 @@ export interface LinhaProcesso {
   data_distribuicao: string | null;
   observacoes: string | null;
   ativo: number;
+  /** 1 = o cliente vê este processo no portal (padrão 0). Só as rotas de portal alteram. */
+  visivel_portal: number;
   criado_por: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -283,6 +287,8 @@ export interface LinhaAndamento {
   descricao: string;
   registrado_por: string | null;
   criado_em: string;
+  /** 1 = o cliente vê este andamento no portal (padrão 0). */
+  visivel_portal: number;
 }
 
 // ---------- Intimações do DJEN (Fase 3) ----------
@@ -334,6 +340,8 @@ export interface LinhaResumoIa {
   decidido_em: string | null;
   criado_em: string;
   atualizado_em: string;
+  /** Quando foi publicado no portal do cliente (null = não publicado). Vem da tabela portal_resumos_publicados. */
+  publicado_portal_em: string | null;
 }
 
 export type IntimacaoDetalhada = LinhaIntimacao & { processo_cnj: string | null };
@@ -1946,7 +1954,16 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
     },
     resumosIa: {
       async buscar(intimacaoId) {
-        return (await db.prepare("SELECT * FROM intimacoes_resumos WHERE tenant_id = ? AND intimacao_id = ?").bind(tid, intimacaoId).first<LinhaResumoIa>()) ?? null;
+        return (
+          (await db
+            .prepare(
+              `SELECT r.*, p.publicado_em AS publicado_portal_em FROM intimacoes_resumos r
+               LEFT JOIN portal_resumos_publicados p ON p.tenant_id = r.tenant_id AND p.intimacao_id = r.intimacao_id
+               WHERE r.tenant_id = ? AND r.intimacao_id = ?`,
+            )
+            .bind(tid, intimacaoId)
+            .first<LinhaResumoIa>()) ?? null
+        );
       },
       async salvarRascunho(intimacaoId, d, agoraIso) {
         const r = await db
@@ -1971,11 +1988,19 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
       },
       async decidir(intimacaoId, para, userId, agoraIso) {
         const origem = para === "aprovado" ? "situacao = 'rascunho'" : "situacao IN ('rascunho', 'aprovado')";
-        const r = await db
-          .prepare(`UPDATE intimacoes_resumos SET situacao = ?, decidido_por = ?, decidido_em = ?, atualizado_em = ? WHERE tenant_id = ? AND intimacao_id = ? AND ${origem}`)
-          .bind(para, userId, agoraIso, agoraIso, tid, intimacaoId)
-          .run();
-        return r.meta.changes > 0;
+        // Na mesma transação: resumo que deixa de estar aprovado sai do portal (publicação só existe para resumo aprovado).
+        const [r] = await db.batch([
+          db
+            .prepare(`UPDATE intimacoes_resumos SET situacao = ?, decidido_por = ?, decidido_em = ?, atualizado_em = ? WHERE tenant_id = ? AND intimacao_id = ? AND ${origem}`)
+            .bind(para, userId, agoraIso, agoraIso, tid, intimacaoId),
+          db
+            .prepare(
+              `DELETE FROM portal_resumos_publicados WHERE tenant_id = ? AND intimacao_id = ?
+               AND NOT EXISTS (SELECT 1 FROM intimacoes_resumos WHERE tenant_id = ? AND intimacao_id = ? AND situacao = 'aprovado')`,
+            )
+            .bind(tid, intimacaoId, tid, intimacaoId),
+        ]);
+        return (r?.meta.changes ?? 0) > 0;
       },
       async usoDoDia(dia) {
         const l = await db.prepare("SELECT usado FROM ia_uso_diario WHERE tenant_id = ? AND dia = ?").bind(tid, dia).first<{ usado: number }>();

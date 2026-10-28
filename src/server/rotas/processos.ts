@@ -165,6 +165,45 @@ rotasProcessos.post("/:id/situacao", exigirSocio, async (c) => {
   return c.json({ ok: true, processo: depois ? (await comRelacionados(repo, [depois]))[0] : null });
 });
 
+// ---------- Apagar processo (definitivo; só o sócio) ----------
+
+const MAX_JUSTIFICATIVA = 500;
+const MIN_JUSTIFICATIVA = 10;
+
+// Contagem para a tela de confirmação.
+rotasProcessos.get("/:id/exclusao", exigirSocio, async (c) => {
+  const repo = repoDaSessao(c);
+  const p = await processoOu404(c, repo);
+  if (!p) return respostaErro(c, 404, "Processo não encontrado.");
+  return c.json({ ok: true, vinculos: await repo.processos.contarVinculos(p.id) });
+});
+
+// Para quem cadastrou por engano. Processo encerrado deve ser desativado, não apagado. A justificativa fica na auditoria.
+rotasProcessos.post("/:id/exclusao", exigirSocio, async (c) => {
+  const repo = repoDaSessao(c);
+  const p = await processoOu404(c, repo);
+  if (!p) return respostaErro(c, 404, "Processo não encontrado.");
+  const corpo = await lerJson(c);
+  const justificativa = typeof corpo.justificativa === "string" ? corpo.justificativa.trim() : "";
+  if (justificativa.length < MIN_JUSTIFICATIVA) return respostaErro(c, 400, `Explique o motivo da exclusão (mínimo de ${MIN_JUSTIFICATIVA} caracteres).`);
+  if (justificativa.length > MAX_JUSTIFICATIVA) return respostaErro(c, 400, `O motivo da exclusão deve ter no máximo ${MAX_JUSTIFICATIVA} caracteres.`);
+  const opcoes = { apagar_prazos: false, apagar_eventos: false, apagar_lancamentos: false };
+  for (const chave of Object.keys(opcoes) as (keyof typeof opcoes)[]) {
+    const valor = corpo[chave];
+    if (valor !== undefined && typeof valor !== "boolean") return respostaErro(c, 400, "Informe as opções de exclusão como verdadeiro ou falso.");
+    opcoes[chave] = valor === true;
+  }
+  const vinculos = await repo.processos.contarVinculos(p.id);
+  const r = await repo.processos.excluirCompleto(p.id, opcoes);
+  if (!r) return respostaErro(c, 404, "Processo não encontrado.");
+  // Os registros já saíram do banco; os arquivos do R2 são apagados em seguida (de mil em mil).
+  for (let i = 0; i < r.chaves_r2.length; i += 1000) await c.env.ARQUIVOS.delete(r.chaves_r2.slice(i, i + 1000));
+  // Detalhes planos (a auditoria guarda só valores simples): contagens com prefixo "tinha_" e opções com o mesmo nome do pedido.
+  const contagens = Object.fromEntries(Object.entries(vinculos).map(([k, v]) => [`tinha_${k}`, v]));
+  await registrar(c, "processo_excluido", "processos", p.id, { justificativa, numero_cnj: p.numero_cnj, assunto: p.assunto, classe: p.classe, ...contagens, ...opcoes });
+  return c.json({ ok: true });
+});
+
 // ---------- Partes ----------
 
 rotasProcessos.get("/:id/partes", async (c) => {

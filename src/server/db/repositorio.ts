@@ -242,6 +242,26 @@ export interface LinhaProcesso {
   atualizado_em: string;
 }
 
+/** Quantos registros ligados a um processo existem (para a confirmação de "Apagar processo"). */
+export interface VinculosProcesso {
+  partes: number;
+  responsaveis: number;
+  andamentos: number;
+  anexos: number;
+  movimentacoes: number;
+  prazos: number;
+  eventos: number;
+  lancamentos: number;
+  intimacoes: number;
+}
+
+/** O que fazer com os registros opcionais: true = apagar junto; false = manter, sem processo. */
+export interface OpcoesExclusaoProcesso {
+  apagar_prazos: boolean;
+  apagar_eventos: boolean;
+  apagar_lancamentos: boolean;
+}
+
 /** Campos do processo que o escritório grava (o resto é controlado pela camada). */
 export const CAMPOS_PROCESSO = [
   "numero_cnj", "tribunal", "orgao", "comarca", "area", "classe", "assunto", "fase", "valor_causa_centavos", "data_distribuicao", "observacoes",
@@ -1101,6 +1121,14 @@ export interface Repositorio {
     resumo(): Promise<ResumoProcessos>;
     /** Processos em que o cliente é parte (com o polo dele), ativos primeiro. */
     doCliente(clienteId: string, limite?: number): Promise<ProcessoDoCliente[]>;
+    /** Quantos registros dependem do processo (partes, andamentos, prazos etc.). */
+    contarVinculos(id: string): Promise<VinculosProcesso>;
+    /**
+     * Apaga o processo e o que é só dele (partes, responsáveis, andamentos, movimentações do DataJud, anexos) numa única operação (tudo ou nada).
+     * Prazos, compromissos e lançamentos são apagados ou ficam sem processo, conforme `opcoes`. Intimações ficam sempre, sem processo.
+     * Devolve as chaves dos arquivos no R2 (a rota apaga os arquivos depois), ou null se o processo não existe neste escritório.
+     */
+    excluirCompleto(id: string, opcoes: OpcoesExclusaoProcesso): Promise<{ chaves_r2: string[] } | null>;
   };
   /** `nome_busca` é calculado aqui a partir do nome livre. */
   processoPartes: RepositorioTabela<LinhaParteProcesso> & {
@@ -1648,6 +1676,62 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
           .bind(tid, clienteId, Math.min(Math.max(Math.trunc(limite), 1), LIMITE_MAXIMO))
           .all<ProcessoDoCliente>();
         return results;
+      },
+      async contarVinculos(id) {
+        const r = await db
+          .prepare(
+            `SELECT
+               (SELECT COUNT(*) FROM processos_partes WHERE tenant_id = ?1 AND processo_id = ?2) AS partes,
+               (SELECT COUNT(*) FROM processos_responsaveis WHERE tenant_id = ?1 AND processo_id = ?2) AS responsaveis,
+               (SELECT COUNT(*) FROM processos_andamentos WHERE tenant_id = ?1 AND processo_id = ?2) AS andamentos,
+               (SELECT COUNT(*) FROM anexos WHERE tenant_id = ?1 AND entidade = 'processo' AND entidade_id = ?2) AS anexos,
+               (SELECT COUNT(*) FROM datajud_movimentos WHERE tenant_id = ?1 AND processo_id = ?2) AS movimentacoes,
+               (SELECT COUNT(*) FROM prazos WHERE tenant_id = ?1 AND processo_id = ?2) AS prazos,
+               (SELECT COUNT(*) FROM eventos_agenda WHERE tenant_id = ?1 AND processo_id = ?2) AS eventos,
+               (SELECT COUNT(*) FROM lancamentos WHERE tenant_id = ?1 AND processo_id = ?2) AS lancamentos,
+               (SELECT COUNT(*) FROM intimacoes WHERE tenant_id = ?1 AND processo_id = ?2) AS intimacoes`,
+          )
+          .bind(tid, id)
+          .first<VinculosProcesso>();
+        return r ?? { partes: 0, responsaveis: 0, andamentos: 0, anexos: 0, movimentacoes: 0, prazos: 0, eventos: 0, lancamentos: 0, intimacoes: 0 };
+      },
+      async excluirCompleto(id, opcoes) {
+        const existe = await db.prepare("SELECT id FROM processos WHERE id = ? AND tenant_id = ?").bind(id, tid).first();
+        if (!existe) return null;
+        const { results: arquivos } = await db
+          .prepare("SELECT chave_r2 FROM anexos WHERE tenant_id = ? AND entidade = 'processo' AND entidade_id = ?")
+          .bind(tid, id)
+          .all<{ chave_r2: string }>();
+        const ts = agora();
+        // Filhos antes do processo (chaves estrangeiras). Tudo no mesmo lote: ou apaga tudo, ou nada.
+        const comandos = [
+          ...(opcoes.apagar_eventos
+            ? [
+                db
+                  .prepare("DELETE FROM eventos_participantes WHERE tenant_id = ? AND evento_id IN (SELECT id FROM eventos_agenda WHERE tenant_id = ? AND processo_id = ?)")
+                  .bind(tid, tid, id),
+                db.prepare("DELETE FROM eventos_agenda WHERE tenant_id = ? AND processo_id = ?").bind(tid, id),
+              ]
+            : [db.prepare("UPDATE eventos_agenda SET processo_id = NULL, atualizado_em = ? WHERE tenant_id = ? AND processo_id = ?").bind(ts, tid, id)]),
+          opcoes.apagar_prazos
+            ? db.prepare("DELETE FROM prazos WHERE tenant_id = ? AND processo_id = ?").bind(tid, id)
+            : db.prepare("UPDATE prazos SET processo_id = NULL, atualizado_em = ? WHERE tenant_id = ? AND processo_id = ?").bind(ts, tid, id),
+          opcoes.apagar_lancamentos
+            ? db.prepare("DELETE FROM lancamentos WHERE tenant_id = ? AND processo_id = ?").bind(tid, id)
+            : db.prepare("UPDATE lancamentos SET processo_id = NULL, atualizado_em = ? WHERE tenant_id = ? AND processo_id = ?").bind(ts, tid, id),
+          // Intimações nunca são apagadas; processo_id e vinculo andam juntos (restrição do banco).
+          db.prepare("UPDATE intimacoes SET processo_id = NULL, vinculo = NULL WHERE tenant_id = ? AND processo_id = ?").bind(tid, id),
+          db.prepare("DELETE FROM datajud_movimentos WHERE tenant_id = ? AND processo_id = ?").bind(tid, id),
+          db.prepare("DELETE FROM datajud_consultas WHERE tenant_id = ? AND processo_id = ?").bind(tid, id),
+          db.prepare("DELETE FROM anexos WHERE tenant_id = ? AND entidade = 'processo' AND entidade_id = ?").bind(tid, id),
+          db.prepare("DELETE FROM processos_partes WHERE tenant_id = ? AND processo_id = ?").bind(tid, id),
+          db.prepare("DELETE FROM processos_responsaveis WHERE tenant_id = ? AND processo_id = ?").bind(tid, id),
+          db.prepare("DELETE FROM processos_andamentos WHERE tenant_id = ? AND processo_id = ?").bind(tid, id),
+          db.prepare("DELETE FROM processos WHERE tenant_id = ? AND id = ?").bind(tid, id),
+        ];
+        const r = await db.batch(comandos);
+        if ((r[r.length - 1]?.meta.changes ?? 0) === 0) return null;
+        return { chaves_r2: arquivos.map((a) => a.chave_r2) };
       },
     },
     processoPartes: {

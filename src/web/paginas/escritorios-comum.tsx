@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ErroApi, ROTULO_PLANO, api, formatarDia } from "../api";
+import { Lock, Eye } from "lucide-react";
+import { ErroApi, ROTULO_PLANO, api, formatarDia, formatarDiaCivil } from "../api";
 import type { Plano, Status } from "../api";
 import type { EscritorioResumo } from "../painel";
-import { Avatar, Botao, Confirmar, CopiarLink, Entrada, Formulario, Modal, SelecaoCompacta, Selecao, SeloSituacao, Tabela, useToast } from "../ui";
+import { Avatar, Botao, Confirmar, CopiarLink, Entrada, Formulario, Modal, SelecaoCompacta, Selecao, Selo, SeloSituacao, Tabela, useToast } from "../ui";
 import type { Coluna } from "../ui";
 
 export interface Escritorio extends EscritorioResumo {
@@ -33,7 +34,7 @@ export function useEscritorios() {
     void carregar();
   }, [carregar]);
 
-  const alterar = async (e: Escritorio, mudanca: { plano?: Plano; status?: Status }, sucesso: string) => {
+  const alterar = async (e: Escritorio, mudanca: { plano?: Plano; status?: Status; teste_ultimo_dia?: string }, sucesso: string) => {
     try {
       await api("PATCH", `/api/plataforma/escritorios/${e.id}`, mudanca);
       avisar(sucesso);
@@ -54,6 +55,8 @@ export function useModaisEscritorios(g: GestaoEscritorios) {
   const { avisar } = useToast();
   const [novoAberto, setNovoAberto] = useState(false);
   const [conviteDe, setConviteDe] = useState<Escritorio | null>(null);
+  const [testeDe, setTesteDe] = useState<Escritorio | null>(null);
+  const [diaTeste, setDiaTeste] = useState("");
   const [pendente, setPendente] = useState<Pendente>(null);
   const [nome, setNome] = useState("");
   const [plano, setPlano] = useState<Plano>("solo");
@@ -100,6 +103,26 @@ export function useModaisEscritorios(g: GestaoEscritorios) {
     setLink("");
     setEmail("");
     setConviteDe(e);
+  };
+  const abrirTeste = (e: Escritorio) => {
+    setErro("");
+    setDiaTeste(e.teste_ultimo_dia ?? "");
+    setTesteDe(e);
+  };
+  const salvarTeste = async () => {
+    if (!testeDe) return;
+    setEnviando(true);
+    setErro("");
+    try {
+      await api("PATCH", `/api/plataforma/escritorios/${testeDe.id}`, { teste_ultimo_dia: diaTeste });
+      avisar(`${testeDe.nome}: o teste agora vai até ${formatarDiaCivil(diaTeste)}.`);
+      setTesteDe(null);
+      await g.recarregar();
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : "Algo deu errado.");
+    } finally {
+      setEnviando(false);
+    }
   };
   const pedir = (tipo: "suspender" | "cancelar", escritorio: Escritorio) => setPendente({ tipo, escritorio });
 
@@ -150,6 +173,26 @@ export function useModaisEscritorios(g: GestaoEscritorios) {
         )}
       </Modal>
 
+      <Modal
+        aberto={testeDe !== null}
+        aoFechar={() => setTesteDe(null)}
+        titulo="Alterar o fim do teste"
+        descricao={testeDe ? `${testeDe.nome}. O último dia é inclusive. Depois dele, o escritório fica 10 dias só para leitura e então é bloqueado.` : undefined}
+      >
+        <Formulario aoEnviar={() => void salvarTeste()}>
+          <Entrada rotulo="Último dia do teste" type="date" value={diaTeste} onChange={(e) => setDiaTeste(e.target.value)} required />
+          {erro && <p className="aviso aviso-erro" role="alert">{erro}</p>}
+          <div className="modal-rodape">
+            <Botao variante="secundario" onClick={() => setTesteDe(null)}>
+              Cancelar
+            </Botao>
+            <Botao type="submit" carregando={enviando}>
+              Salvar data
+            </Botao>
+          </div>
+        </Formulario>
+      </Modal>
+
       <Confirmar
         aberto={pendente !== null}
         aoFechar={() => setPendente(null)}
@@ -168,7 +211,7 @@ export function useModaisEscritorios(g: GestaoEscritorios) {
     </>
   );
 
-  return { abrirNovo, abrirConvite, pedir, modais };
+  return { abrirNovo, abrirConvite, abrirTeste, pedir, modais };
 }
 export type ModaisEscritorios = ReturnType<typeof useModaisEscritorios>;
 
@@ -204,7 +247,28 @@ export function TabelaEscritorios({ linhas, g, m }: { linhas: Escritorio[]; g: G
     },
     { chave: "status", titulo: "Situação", render: (e) => <SeloSituacao status={e.status} /> },
     { chave: "usuarios", titulo: "Usuários", numerica: true, render: (e) => e.usuarios },
-    { chave: "teste", titulo: "Teste até", nowrap: true, render: (e) => (e.status === "teste" ? formatarDia(e.teste_ate) : "—") },
+    {
+      chave: "teste",
+      titulo: "Teste até",
+      nowrap: true,
+      render: (e) => {
+        if (e.status !== "teste") return "—";
+        const dia = formatarDiaCivil(e.teste_ultimo_dia ?? null);
+        const sit = e.assinatura?.situacao;
+        return (
+          <div>
+            <div>{dia}</div>
+            {sit === "leitura" && <Selo tom="aviso" icone={Eye}>Somente leitura</Selo>}
+            {sit === "bloqueado" && <Selo tom="critico" icone={Lock}>Bloqueado</Selo>}
+            <div>
+              <Botao tamanho="pequeno" variante="fantasma" onClick={() => m.abrirTeste(e)} aria-label={`Alterar o fim do teste de ${e.nome}`}>
+                Alterar
+              </Botao>
+            </div>
+          </div>
+        );
+      },
+    },
     {
       chave: "acoes",
       titulo: "Ações",

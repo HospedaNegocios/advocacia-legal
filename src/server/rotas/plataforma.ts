@@ -5,8 +5,11 @@ import { criarAcessoPlataforma } from "../db/repositorio";
 import type { LinhaTenant, StatusEscritorio } from "../db/repositorio";
 import { auditar } from "../auditoria";
 import { criarConvite } from "../convites";
+import { mensagemLimiteDeUsuarios } from "../planos";
 import { exigirSessao, ipDe } from "../sessao";
 import { registrarDiagnosticoDjen } from "./diagnostico-djen";
+import { dataCivilValida } from "../../comum/fuso";
+import { resumoDaAssinatura, testeAteDoDia, ultimoDiaDoTeste } from "../../comum/assinatura";
 import { ehPlano, lerJson, normalizarEmail, normalizarNome, respostaErro } from "../validacao";
 
 // Todas as rotas aqui são do dono da plataforma, com 2FA concluído.
@@ -31,6 +34,9 @@ function escritorioPublico(t: LinhaTenant, usuarios: number) {
     plano: t.plano,
     status: t.status,
     teste_ate: t.teste_ate,
+    // Último dia do teste (dia de São Paulo) e situação calculada: normal, leitura (somente leitura) ou bloqueado.
+    teste_ultimo_dia: ultimoDiaDoTeste(t.teste_ate),
+    assinatura: resumoDaAssinatura(t),
     exigir_2fa: t.exigir_2fa === 1,
     criado_em: t.criado_em,
     usuarios,
@@ -77,7 +83,7 @@ rotasPlataforma.patch("/escritorios/:id", async (c) => {
   if (!atual) return respostaErro(c, 404, "Escritório não encontrado.");
   const corpo = await lerJson(c);
   const ip = ipDe(c);
-  const mudancas: { plano?: LinhaTenant["plano"]; status?: StatusEscritorio } = {};
+  const mudancas: { plano?: LinhaTenant["plano"]; status?: StatusEscritorio; teste_ate?: string } = {};
   if (corpo.plano !== undefined) {
     if (!ehPlano(corpo.plano)) return respostaErro(c, 400, "Plano inválido.");
     mudancas.plano = corpo.plano;
@@ -88,8 +94,15 @@ rotasPlataforma.patch("/escritorios/:id", async (c) => {
     }
     mudancas.status = corpo.status as StatusEscritorio;
   }
-  if (mudancas.plano === undefined && mudancas.status === undefined) {
-    return respostaErro(c, 400, "Informe o plano ou a situação.");
+  if (corpo.teste_ultimo_dia !== undefined) {
+    // Último dia do teste grátis (AAAA-MM-DD, dia de São Paulo). Estender restaura o acesso na hora.
+    if (typeof corpo.teste_ultimo_dia !== "string" || !dataCivilValida(corpo.teste_ultimo_dia) || corpo.teste_ultimo_dia < "2020-01-01" || corpo.teste_ultimo_dia > "2100-12-31") {
+      return respostaErro(c, 400, "Informe o último dia do teste como uma data válida (AAAA-MM-DD).");
+    }
+    mudancas.teste_ate = testeAteDoDia(corpo.teste_ultimo_dia);
+  }
+  if (mudancas.plano === undefined && mudancas.status === undefined && mudancas.teste_ate === undefined) {
+    return respostaErro(c, 400, "Informe o plano, a situação ou o último dia do teste.");
   }
   await plataforma.atualizarEscritorio(atual.id, mudancas);
   if (mudancas.plano !== undefined && mudancas.plano !== atual.plano) {
@@ -118,6 +131,18 @@ rotasPlataforma.patch("/escritorios/:id", async (c) => {
       ip,
     });
   }
+  if (mudancas.teste_ate !== undefined && mudancas.teste_ate !== atual.teste_ate) {
+    await auditar(c.env.DB, {
+      tenantId: atual.id,
+      plataforma: true,
+      userId: usuario.id,
+      acao: "tenant_teste_alterado",
+      entidade: "tenants",
+      entidadeId: atual.id,
+      detalhes: { de: ultimoDiaDoTeste(atual.teste_ate), para: ultimoDiaDoTeste(mudancas.teste_ate) },
+      ip,
+    });
+  }
   const novo = await plataforma.buscarEscritorio(atual.id);
   const contagem = await plataforma.contarUsuariosPorEscritorio();
   return c.json({ ok: true, escritorio: escritorioPublico(novo as LinhaTenant, contagem[atual.id] ?? 0) });
@@ -133,7 +158,9 @@ rotasPlataforma.post("/escritorios/:id/convite-socio", async (c) => {
   const email = normalizarEmail(corpo.email);
   if (!email) return respostaErro(c, 400, "Informe um e-mail válido.");
   const r = await criarConvite(c.env.DB, escritorio.id, { email, perfil: "socio", criadoPor: usuario.id });
-  if (!r.ok) return respostaErro(c, 409, "Já existe um usuário com este e-mail neste escritório.");
+  if (!r.ok) {
+    return respostaErro(c, 409, r.motivo === "limite" ? mensagemLimiteDeUsuarios(r.plano) : "Já existe um usuário com este e-mail neste escritório.");
+  }
   await auditar(c.env.DB, {
     tenantId: escritorio.id,
     plataforma: true,

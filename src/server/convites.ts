@@ -1,13 +1,15 @@
 import { criarRepositorio } from "./db/repositorio";
-import type { Perfil } from "./db/repositorio";
+import type { Perfil, Plano } from "./db/repositorio";
 import { gerarToken, sha256Hex } from "./auth/codificacao";
 import { SENHA_INUTILIZAVEL } from "./auth/senha";
+import { limiteDeUsuarios } from "./planos";
 
 export const VALIDADE_CONVITE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type ResultadoConvite =
   | { ok: true; token: string; expiraEm: string; userId: string; reenvio: boolean }
-  | { ok: false; motivo: "ja_existe" };
+  | { ok: false; motivo: "ja_existe" }
+  | { ok: false; motivo: "limite"; plano: Plano };
 
 /**
  * Cria (ou renova) o convite de um usuário de UM escritório. `tenantId` vem da sessão do sócio
@@ -22,9 +24,17 @@ export async function criarConvite(
   const [existente] = await repo.users.listar({ email: dados.email }, { limite: 1 });
   let userId: string;
   let reenvio = false;
+  if (existente && existente.senha_definida === 1) return { ok: false, motivo: "ja_existe" };
+  // Limite de usuários do plano: ativos + convites pendentes. Reconvidar quem já ocupa vaga não conta duas vezes.
+  const escritorio = await repo.buscarMeuEscritorio();
+  if (escritorio) {
+    const limite = limiteDeUsuarios(escritorio.plano);
+    if (limite !== null && (await repo.vagas.contarOcupadas(existente?.id ?? null)).total >= limite) {
+      return { ok: false, motivo: "limite", plano: escritorio.plano };
+    }
+  }
   if (existente) {
     // Só renova convite de quem ainda não aceitou; usuário que já tem senha não é tocado.
-    if (existente.senha_definida === 1) return { ok: false, motivo: "ja_existe" };
     userId = existente.id;
     reenvio = true;
     await repo.users.atualizar(userId, { perfil: dados.perfil, ativo: 1 });

@@ -16,6 +16,13 @@ interface Membro {
   convite_pendente: boolean;
   totp_ativo: boolean;
 }
+/** Vagas do plano: usuários ativos + convites pendentes (limite null = ilimitado). */
+interface Vagas {
+  usados: number;
+  ativos: number;
+  convites_pendentes: number;
+  limite: number | null;
+}
 interface MembroAcesso {
   id: string;
   nome: string;
@@ -63,11 +70,14 @@ export function Equipe() {
   const [erroPermissoes, setErroPermissoes] = useState("");
   const [salvando, setSalvando] = useState<string | null>(null);
   const [desativando, setDesativando] = useState<Membro | null>(null);
+  const [excluindoConvite, setExcluindoConvite] = useState<Membro | null>(null);
+  const [vagas, setVagas] = useState<Vagas | null>(null);
 
   const carregar = useCallback(async () => {
     try {
-      const r = await api<{ usuarios: Membro[]; exigir_2fa: boolean }>("GET", "/api/equipe/usuarios");
+      const r = await api<{ usuarios: Membro[]; exigir_2fa: boolean; vagas: Vagas }>("GET", "/api/equipe/usuarios");
       setMembros(r.usuarios);
+      setVagas(r.vagas);
       setExigir2fa(r.exigir_2fa);
       setErroLista("");
     } catch (e) {
@@ -211,6 +221,14 @@ export function Equipe() {
       acoes: true,
       render: (m) => {
         const euMesmo = m.id === eu?.usuario.id;
+        if (m.ativo && m.convite_pendente)
+          return (
+            <div className="tabela-acoes">
+              <Botao tamanho="pequeno" variante="perigo" onClick={() => setExcluindoConvite(m)} aria-label={`Excluir o convite de ${m.email}`}>
+                Excluir convite
+              </Botao>
+            </div>
+          );
         if (m.ativo && !euMesmo)
           return (
             <div className="tabela-acoes">
@@ -368,7 +386,14 @@ export function Equipe() {
           Array.from({ length: 3 }, (_, i) => <EsqueletoKpi key={i} />)
         ) : (
           <>
-            <Indicador rotulo="Usuários ativos" valor={ativos.length} icone={UsersRound} />
+            <Indicador
+              rotulo="Usuários do plano"
+              valor={vagas ? (vagas.limite === null ? `${vagas.usados} (sem limite)` : `${vagas.usados} de ${vagas.limite}`) : String(ativos.length)}
+              icone={UsersRound}
+              nota={vagas ? `${vagas.ativos} ativo${vagas.ativos === 1 ? "" : "s"} + ${vagas.convites_pendentes} convite${vagas.convites_pendentes === 1 ? "" : "s"} pendente${vagas.convites_pendentes === 1 ? "" : "s"}` : undefined}
+            >
+              {vagas && vagas.limite !== null && <Medidor rotulo="Vagas usadas" valor={vagas.usados} maximo={Math.max(1, vagas.limite)} />}
+            </Indicador>
             <Indicador rotulo="Convites pendentes" valor={pendentes.length} icone={MailQuestion} nota={pendentes.length ? "Aguardando a pessoa criar a senha" : "Nenhum convite aguardando"} />
             <Indicador rotulo="Com verificação em 2 etapas" valor={ativos.length > 0 ? `${Math.round((com2fa / ativos.length) * 100)}%` : "—"} icone={ShieldCheck}>
               <Medidor rotulo="Usuários protegidos" valor={com2fa} maximo={Math.max(1, ativos.length)} />
@@ -423,6 +448,23 @@ export function Equipe() {
           </div>
         )}
       </Modal>
+
+      <Confirmar
+        aberto={excluindoConvite !== null}
+        aoFechar={() => setExcluindoConvite(null)}
+        titulo="Excluir convite"
+        rotuloConfirmar="Excluir convite"
+        perigo
+        aoConfirmar={() => {
+          const m = excluindoConvite;
+          if (!m) return;
+          setExcluindoConvite(null);
+          void executar(async () => void (await api("DELETE", `/api/equipe/convites/${m.id}`)), `Convite de ${m.email} excluído.`);
+          void carregarPermissoes();
+        }}
+      >
+        Excluir o convite de {excluindoConvite?.email}? O link enviado deixa de funcionar e a vaga volta a ficar livre.
+      </Confirmar>
 
       <Confirmar
         aberto={desativando !== null}

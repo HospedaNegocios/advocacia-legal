@@ -1,4 +1,5 @@
 import { Mail, MessageCircle } from "lucide-react";
+import { CONTATO_SUPORTE, TELA_VENCIDA } from "../../comum/textos-assinatura";
 import { useSessao } from "../sessao";
 import { navegar } from "../roteador";
 import { Aviso, Botao } from "../ui";
@@ -8,14 +9,14 @@ import { TelaAcesso } from "../layout/TelaAcesso";
 export function AssinaturaVencida() {
   const { sair } = useSessao();
   return (
-    <TelaAcesso titulo="Assinatura vencida" descricao="O acesso ao seu escritório está bloqueado. Fale com o suporte para reativar.">
+    <TelaAcesso titulo={TELA_VENCIDA.titulo} descricao={TELA_VENCIDA.descricao}>
       <div className="pilha">
-        <Aviso tipo="atencao">Os dados do seu escritório continuam guardados. Assim que a assinatura for ativada, o acesso volta ao normal.</Aviso>
+        <Aviso tipo="atencao">{TELA_VENCIDA.aviso}</Aviso>
         <p style={{ margin: 0 }}>
-          <MessageCircle size={16} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> WhatsApp: <a href="https://wa.me/5512992198038">(12) 99219-8038</a>
+          <MessageCircle size={16} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> WhatsApp: <a href={CONTATO_SUPORTE.whatsappLink}>{CONTATO_SUPORTE.whatsappTexto}</a>
         </p>
         <p style={{ margin: 0 }}>
-          <Mail size={16} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> E-mail: <a href="mailto:comercial@advocacia.legal">comercial@advocacia.legal</a>
+          <Mail size={16} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> E-mail: <a href={CONTATO_SUPORTE.emailLink}>{CONTATO_SUPORTE.email}</a>
         </p>
         <Botao variante="secundario" bloco onClick={() => void sair().then(() => navegar("/entrar", true))}>
           Sair

@@ -7,6 +7,7 @@ import type { NivelPermissao } from "../db/repositorio";
 import type { LinhaUsuario } from "../db/repositorio";
 import { auditar } from "../auditoria";
 import { criarConvite } from "../convites";
+import { CONVITE_JA_ACEITO, CONVITE_NAO_ENCONTRADO } from "../../comum/textos-assinatura";
 import { limiteDeUsuarios, mensagemLimiteDeUsuarios } from "../planos";
 import { exigirSessao, ipDe } from "../sessao";
 import { ehPerfil, lerJson, normalizarEmail, respostaErro } from "../validacao";
@@ -145,8 +146,8 @@ rotasEquipe.delete("/convites/:usuarioId", async (c) => {
   const sessao = c.get("sessao");
   const id = c.req.param("usuarioId");
   const r = await repoDaSessao(c).vagas.excluirConvitePendente(id);
-  if (r === "nao_encontrado") return respostaErro(c, 404, "Convite não encontrado.");
-  if (r === "nao_pendente") return respostaErro(c, 409, "Este convite já foi aceito e não pode ser excluído. Se for o caso, desative o usuário.");
+  if (r === "nao_encontrado") return respostaErro(c, 404, CONVITE_NAO_ENCONTRADO);
+  if (r === "nao_pendente") return respostaErro(c, 409, CONVITE_JA_ACEITO);
   await auditar(c.env.DB, {
     tenantId: sessao.tenantId,
     userId: sessao.usuario.id,

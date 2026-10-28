@@ -78,6 +78,4 @@ export function testeAteDoDia(dia: string): string {
   return new Date(instanteLocal(dia, "23:59", FUSO_PADRAO, 59, 999)).toISOString();
 }
 
-export const MENSAGEM_SOMENTE_LEITURA =
-  "O período de teste do seu escritório terminou. Você pode consultar tudo e baixar documentos, mas não pode criar nem alterar nada. Fale com o suporte para ativar a assinatura.";
-export const MENSAGEM_BLOQUEADO = "Assinatura vencida. Fale com o suporte para reativar o acesso do seu escritório.";
+export { MENSAGEM_BLOQUEADO, MENSAGEM_SOMENTE_LEITURA } from "./textos-assinatura";

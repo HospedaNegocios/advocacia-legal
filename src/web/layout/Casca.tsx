@@ -7,6 +7,8 @@ import { Link, navegar, useCaminho } from "../roteador";
 import { useSessao } from "../sessao";
 import { ProvedorSomenteLeitura } from "../somente-leitura";
 import { formatarDiaCivil } from "../api";
+import { FAIXA_TITULO, textoFaixaLeitura } from "../../comum/textos-assinatura";
+import { BannerTeste } from "./BannerTeste";
 import { MenuUsuario } from "./MenuUsuario";
 import { AvisoDePrazos, useAlertasPrazos } from "./AlertasPrazos";
 import { useContagemIntimacoes } from "./contagem-intimacoes";
@@ -185,11 +187,17 @@ export function Casca({ children }: { children: ReactNode }) {
         {somenteLeitura && (
           <div className="faixa-assinatura">
             <Aviso tipo="atencao">
-              <strong>Somente leitura.</strong> O período de teste do escritório terminou
-              {eu.assinatura?.ultimo_dia_teste ? ` em ${formatarDiaCivil(eu.assinatura.ultimo_dia_teste)}` : ""}. Você pode consultar tudo e baixar documentos, mas não pode criar nem alterar nada
-              {eu.assinatura?.bloqueio_desde ? `. O acesso será bloqueado em ${formatarDiaCivil(eu.assinatura.bloqueio_desde)}` : ""}. Fale com o suporte para ativar a assinatura.
+              <strong>{FAIXA_TITULO}</strong>{" "}
+              {textoFaixaLeitura(
+                eu.assinatura?.ultimo_dia_teste ? formatarDiaCivil(eu.assinatura.ultimo_dia_teste) : null,
+                eu.assinatura?.bloqueio_desde ? formatarDiaCivil(eu.assinatura.bloqueio_desde) : null,
+                eu.assinatura?.dias_para_bloqueio ?? null,
+              )}
             </Aviso>
           </div>
+        )}
+        {ehEscritorio && escritorio?.status === "teste" && eu.assinatura?.situacao === "normal" && typeof eu.assinatura.dias_para_fim_teste === "number" && (
+          <BannerTeste usuarioId={usuario.id} dias={eu.assinatura.dias_para_fim_teste} />
         )}
         <main className="conteudo" id="conteudo" tabIndex={-1}>
           <ProvedorSomenteLeitura value={somenteLeitura}>{children}</ProvedorSomenteLeitura>

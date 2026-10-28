@@ -9,4 +9,4 @@ const Contexto = createContext(false);
 export const ProvedorSomenteLeitura = Contexto.Provider;
 export const useSomenteLeitura = () => useContext(Contexto);
 
-export const TEXTO_SOMENTE_LEITURA = "Somente leitura: o período de teste terminou. Fale com o suporte para ativar a assinatura.";
+export { TEXTO_SOMENTE_LEITURA } from "../comum/textos-assinatura";

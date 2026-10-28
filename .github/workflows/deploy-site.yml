@@ -33,7 +33,8 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Impedir que buscadores indexem o site de dev
-        run: printf '\n/*\n  X-Robots-Tag: noindex, nofollow\n' >> site/public/_headers
+        run: |
+          printf '\n/*\n  X-Robots-Tag: noindex, nofollow\n' >> site/public/_headers
       - name: Publicar site (dev)
         run: npx wrangler deploy -c site/wrangler.jsonc --env dev
 

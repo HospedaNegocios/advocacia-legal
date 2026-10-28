@@ -23,6 +23,7 @@ function processoPublico(l: LinhaProcesso) {
   const saida: Record<string, string | number | boolean | null> = { id: l.id };
   for (const campo of CAMPOS_PROCESSO) saida[campo] = l[campo];
   saida.ativo = l.ativo === 1;
+  saida.visivel_portal = l.visivel_portal === 1;
   saida.criado_em = l.criado_em;
   saida.atualizado_em = l.atualizado_em;
   return saida;
@@ -45,6 +46,7 @@ const andamentoPublico = (a: LinhaAndamento) => ({
   descricao: a.descricao,
   registrado_por: a.registrado_por,
   criado_em: a.criado_em,
+  visivel_portal: a.visivel_portal === 1,
 });
 
 /** Processo + partes + responsáveis (uma consulta de cada para a lista toda). */

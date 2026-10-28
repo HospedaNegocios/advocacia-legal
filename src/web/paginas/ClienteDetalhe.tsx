@@ -6,6 +6,7 @@ import { Link } from "../roteador";
 import { useSessao } from "../sessao";
 import { Abas, AreaTexto, Aviso, Botao, CabecalhoPagina, Cartao, Confirmar, Entrada, EsqueletoLinhas, EstadoErro, EstadoVazio, Formulario, Modal, Selo, useToast } from "../ui";
 import { ClienteFormulario } from "./ClienteFormulario";
+import { AbaPortal, useGestorDoPortal } from "./PortalGestao";
 import { AbaDocumentos, Dado } from "./abas-comuns";
 import { ROTULO_TIPO, cepFormatado, diaBr, documentoFormatado, hojeIso, telefoneFormatado } from "./clientes-comum";
 import type { Cliente, Consentimento, Contato } from "./clientes-comum";
@@ -383,6 +384,7 @@ export function ClienteDetalhe({ id }: { id: string }) {
   const { avisar } = useToast();
   const { eu } = useSessao();
   const ehSocio = eu?.usuario.perfil === "socio";
+  const gestorDoPortal = useGestorDoPortal();
   const [c, setC] = useState<Cliente | null>(null);
   const [erro, setErro] = useState("");
   const [editando, setEditando] = useState(false);
@@ -470,6 +472,7 @@ export function ClienteDetalhe({ id }: { id: string }) {
             { id: "documentos", rotulo: "Documentos", conteudo: <AbaDocumentos base={`/api/clientes/${c.id}`} editavel={c.ativo} ehSocio={ehSocio} texto={{ vazio: "Guarde aqui procuração, documentos pessoais e contratos deste cliente.", lista: "Documentos do cliente" }} /> },
             { id: "lgpd", rotulo: "LGPD", conteudo: <AbaLgpd c={c} /> },
             { id: "processos", rotulo: "Processos", conteudo: <AbaProcessos c={c} /> },
+            ...(gestorDoPortal ? [{ id: "portal", rotulo: "Portal", conteudo: <AbaPortal c={c} /> }] : []),
           ]}
         />
       </Cartao>

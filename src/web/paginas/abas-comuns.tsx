@@ -1,7 +1,8 @@
-import { Download, FileText, Trash2, Upload } from "lucide-react";
+import { Download, Eye, EyeOff, FileText, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ErroApi, api, enviarArquivo, formatarData } from "../api";
-import { Botao, Confirmar, EsqueletoLinhas, EstadoErro, EstadoVazio, useToast } from "../ui";
+import { useSessao } from "../sessao";
+import { Botao, Confirmar, EsqueletoLinhas, EstadoErro, EstadoVazio, Selo, useToast } from "../ui";
 import { tamanhoLegivel } from "./clientes-comum";
 import type { Anexo } from "./clientes-comum";
 
@@ -21,6 +22,8 @@ export function Dado({ rotulo, valor }: { rotulo: string; valor: string | null |
  */
 export function AbaDocumentos({ base, editavel, ehSocio, texto }: { base: string; editavel: boolean; ehSocio: boolean; texto: { vazio: string; lista: string } }) {
   const { avisar } = useToast();
+  const { eu } = useSessao();
+  const gestorDoPortal = eu?.usuario.perfil === "socio" || eu?.usuario.perfil === "advogado";
   const [lista, setLista] = useState<Anexo[] | null>(null);
   const [maximo, setMaximo] = useState(7 * 1024 * 1024);
   const [erroCarga, setErroCarga] = useState("");
@@ -69,6 +72,16 @@ export function AbaDocumentos({ base, editavel, ehSocio, texto }: { base: string
     }
   };
 
+  const compartilhar = async (a: Anexo, compartilhado: boolean) => {
+    try {
+      await api("PUT", `/api/portal-gestao/anexos/${a.id}/visibilidade`, { compartilhado });
+      avisar(compartilhado ? "Documento compartilhado com o cliente." : "Documento retirado do portal do cliente.");
+    } catch (e) {
+      avisar(e instanceof ErroApi ? e.message : "Algo deu errado.", "erro");
+    }
+    await carregar();
+  };
+
   const apagar = async (a: Anexo) => {
     setApagando(null);
     try {
@@ -98,6 +111,7 @@ export function AbaDocumentos({ base, editavel, ehSocio, texto }: { base: string
       <div className="abas-acao">
         <p className="texto-pequeno" style={{ margin: 0 }}>
           PDF, imagem (JPEG, PNG, WEBP), Word ou Excel, de até {maximo / 1024 / 1024} MB cada.
+          {gestorDoPortal ? " Nenhum documento aparece no portal do cliente até você compartilhá-lo." : ""}
         </p>
         {lista.length > 0 && botaoEnviar}
       </div>
@@ -114,12 +128,25 @@ export function AbaDocumentos({ base, editavel, ehSocio, texto }: { base: string
                 <small>
                   {tamanhoLegivel(a.tamanho_bytes)} · enviado em {formatarData(a.criado_em)}
                 </small>
+                {a.compartilhado_cliente && (
+                  <span>
+                    <Selo tom="info" icone={Eye}>
+                      Compartilhado com o cliente
+                    </Selo>
+                  </span>
+                )}
               </div>
               <div className="tabela-acoes">
                 <Botao tamanho="pequeno" variante="secundario" onClick={() => void baixar(a)} aria-label={`Baixar ${a.nome}`}>
                   <Download size={16} aria-hidden="true" />
                   Baixar
                 </Botao>
+                {gestorDoPortal && (editavel || a.compartilhado_cliente) && (
+                  <Botao tamanho="pequeno" variante="secundario" onClick={() => void compartilhar(a, !a.compartilhado_cliente)} aria-label={`${a.compartilhado_cliente ? "Parar de compartilhar" : "Compartilhar com o cliente"}: ${a.nome}`}>
+                    {a.compartilhado_cliente ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+                    {a.compartilhado_cliente ? "Parar de compartilhar" : "Compartilhar com o cliente"}
+                  </Botao>
+                )}
                 {ehSocio && editavel && (
                   <Botao tamanho="pequeno" variante="perigo" onClick={() => setApagando(a)} aria-label={`Apagar ${a.nome}`}>
                     <Trash2 size={16} aria-hidden="true" />

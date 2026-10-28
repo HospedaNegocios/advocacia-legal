@@ -17,12 +17,14 @@ import { rotasInicio } from "./rotas/inicio";
 import { rotasAlertas } from "./rotas/alertas";
 import { rotasFinanceiro } from "./rotas/financeiro";
 import { rotasIntimacoes } from "./rotas/intimacoes";
+import { rotasPortal } from "./rotas/portal";
+import { rotasPortalGestao } from "./rotas/portal-gestao";
 import { coletaDiaria } from "./djen/coleta";
 import { depsDjen } from "./djen/ambiente";
 import { aoAgendar } from "./alertas-email";
 
 // REGRA DE SEGURANÇA: o escritório (tenant) vem SEMPRE da sessão do usuário (cookie validado
-// no banco), nunca de parâmetro, corpo, cabeçalho ou cookie escolhido pelo navegador.
+// no banco; no portal do cliente, da sessão do portal, que também define o cliente), nunca de parâmetro, corpo, cabeçalho ou cookie escolhido pelo navegador.
 // Nenhuma rota pode aceitar `tenant_id`.
 const app = new Hono<{ Bindings: Env; Variables: Variaveis }>();
 
@@ -51,6 +53,8 @@ app.route("/api/inicio", rotasInicio);
 app.route("/api/alertas", rotasAlertas);
 app.route("/api/financeiro", rotasFinanceiro);
 app.route("/api/intimacoes", rotasIntimacoes);
+app.route("/api/portal", rotasPortal);
+app.route("/api/portal-gestao", rotasPortalGestao);
 
 app.notFound((c) => {
   // Rotas /api desconhecidas devolvem JSON; o restante é tratado pelos arquivos estáticos (SPA).

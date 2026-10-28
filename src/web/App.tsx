@@ -22,6 +22,7 @@ import { navegar, useCaminho } from "./roteador";
 import { ProvedorSessao, useSessao } from "./sessao";
 import { ProvedorTema } from "./tema";
 import { ProvedorToast, Esqueleto } from "./ui";
+import { PortalApp } from "./portal/PortalApp";
 
 function Ir({ para }: { para: string }) {
   useEffect(() => navegar(para, true), [para]);
@@ -75,13 +76,22 @@ function Rotas() {
   return <Casca>{conteudo}</Casca>;
 }
 
+/** O portal do cliente (/portal) tem sessão própria e nunca consulta a sessão do escritório. */
+function Raiz() {
+  const caminho = useCaminho();
+  if (caminho === "/portal" || caminho.startsWith("/portal/")) return <PortalApp />;
+  return (
+    <ProvedorSessao>
+      <Rotas />
+    </ProvedorSessao>
+  );
+}
+
 export function App() {
   return (
     <ProvedorTema>
       <ProvedorToast>
-        <ProvedorSessao>
-          <Rotas />
-        </ProvedorSessao>
+        <Raiz />
       </ProvedorToast>
     </ProvedorTema>
   );

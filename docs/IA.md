@@ -25,7 +25,7 @@ Verificado na documentação oficial da Cloudflare em 2026-10-27.
 ## Privacidade e segurança
 - Ao modelo vai **somente o texto da publicação** (até 20.000 caracteres; o resto é cortado e a tela avisa). Nada do escritório, cliente, usuário ou número do processo.
 - A instrução do sistema manda resumir em linguagem simples, sem inventar fatos e sem conselho jurídico, e trata o texto como dado: ordens escritas dentro da publicação são ignoradas. As marcas `<publicacao>` dentro do texto são removidas para não fecharem o bloco de dados. Saída limitada a 700 tokens e 4.000 caracteres.
-- O resumo é sempre rascunho até um sócio ou advogado aprovar. Só resumo **aprovado** poderá ir ao portal do cliente (portal ainda não existe). A tela mostra "Revise antes de aprovar; a IA pode errar".
+- O resumo é sempre rascunho até um sócio ou advogado aprovar. Só resumo **aprovado** pode ser publicado no portal do cliente (sócio ou advogado publica; rejeitar o resumo o retira do portal; ver docs/PORTAL.md). A tela mostra "Revise antes de aprovar; a IA pode errar".
 - Auditoria (`resumo_ia_gerado|editado|aprovado|rejeitado`) guarda só ids, modelo e situação, nunca o texto.
 - Falha da IA: erro amigável (HTTP 503), nada gravado, cota devolvida.
 - Sobre o tratamento pela Cloudflare (LGPD, retenção e treinamento), os Termos e a Política de Privacidade (Fase 4) devem citar o uso de Workers AI; a política de dados da Cloudflare para Workers AI **não foi verificada** nesta sessão.

@@ -1,4 +1,4 @@
-import { Ban, CircleCheck, CirclePause, History, Pencil, Plus, RotateCcw, Trash2, UserCheck, UserPlus, UserX, Users } from "lucide-react";
+import { Ban, CircleCheck, CirclePause, Eye, History, Pencil, Plus, RotateCcw, Trash2, UserCheck, UserPlus, UserX, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ErroApi, api, formatarData } from "../api";
 import { Link } from "../roteador";
@@ -7,6 +7,7 @@ import { Abas, AreaTexto, Aviso, Botao, CabecalhoPagina, Cartao, CampoMarcar, Co
 import { AbaDocumentos, Dado } from "./abas-comuns";
 import { AbaAgenda, AbaPrazos } from "./AbasAgendaProcesso";
 import { AbaIntimacoes } from "./AbaIntimacoes";
+import { BotaoAndamentoPortal, CartaoPortalProcesso } from "./PortalGestao";
 import { diaBr, hojeIso } from "./clientes-comum";
 import type { Cliente } from "./clientes-comum";
 import { SeloFase } from "./ProcessoFase";
@@ -14,9 +15,10 @@ import { ProcessoFormulario } from "./ProcessoFormulario";
 import { ROTULO_POLO, cnjFormatado, reais } from "./processos-comum";
 import type { Andamento, Parte, Polo, Processo, Responsavel, UsuarioDisponivel } from "./processos-comum";
 
-function AbaDados({ p, aoEditar }: { p: Processo; aoEditar: () => void }) {
+function AbaDados({ p, aoEditar, aoPortal }: { p: Processo; aoEditar: () => void; aoPortal: (visivel: boolean) => void }) {
   return (
     <div className="pilha">
+      <CartaoPortalProcesso p={p} aoMudar={aoPortal} />
       <div className="abas-acao">
         <h3 className="subtitulo-form" style={{ margin: 0 }}>
           Dados do processo
@@ -476,6 +478,16 @@ function AbaAndamentos({ p, ehSocio }: { p: Processo; ehSocio: boolean }) {
                   <small>
                     Registrado por {a.registrado_por_nome ?? "usuário removido"} em {formatarData(a.criado_em)}
                   </small>
+                  {a.visivel_portal && (
+                    <span>
+                      <Selo tom="info" icone={Eye}>
+                        Visível ao cliente
+                      </Selo>
+                    </span>
+                  )}
+                  <div>
+                    <BotaoAndamentoPortal p={p} andamentoId={a.id} visivel={a.visivel_portal} aoMudar={(v) => setItens((lista) => lista && lista.map((x) => (x.id === a.id ? { ...x, visivel_portal: v } : x)))} />
+                  </div>
                   {ehSocio && p.ativo && (
                     <div>
                       <Botao tamanho="pequeno" variante="perigo" onClick={() => setApagando(a)} aria-label={`Apagar andamento de ${diaBr(a.data)}`}>
@@ -607,7 +619,7 @@ export function ProcessoDetalhe({ id }: { id: string }) {
       <Cartao>
         <Abas
           abas={[
-            { id: "dados", rotulo: "Dados", conteudo: <AbaDados p={p} aoEditar={() => setEditando(true)} /> },
+            { id: "dados", rotulo: "Dados", conteudo: <AbaDados p={p} aoEditar={() => setEditando(true)} aoPortal={(visivel) => setP({ ...p, visivel_portal: visivel })} /> },
             { id: "partes", rotulo: "Partes", conteudo: <AbaPartes p={p} /> },
             { id: "responsaveis", rotulo: "Responsáveis", conteudo: <AbaResponsaveis p={p} /> },
             { id: "andamentos", rotulo: "Andamentos", conteudo: <AbaAndamentos p={p} ehSocio={ehSocio} /> },

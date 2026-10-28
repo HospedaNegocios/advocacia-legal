@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, FilePen, Sparkles } from "lucide-react";
+import { CircleCheck, CircleX, Eye, EyeOff, FilePen, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ErroApi, api, formatarData } from "../api";
 import { useSessao } from "../sessao";
@@ -11,6 +11,8 @@ export interface ResumoIa {
   situacao: "rascunho" | "aprovado" | "rejeitado";
   decidido_em: string | null;
   atualizado_em: string;
+  /** Quando foi publicado no portal do cliente (null = não publicado). */
+  publicado_portal_em: string | null;
 }
 interface UsoIa {
   usado: number;
@@ -31,7 +33,7 @@ function SeloResumo({ situacao }: { situacao: ResumoIa["situacao"] }) {
   return <Selo tom="aviso" icone={FilePen}>Rascunho: falta revisar</Selo>;
 }
 
-/** Seção "Resumo em linguagem simples" do painel da intimação. Só um resumo aprovado poderá ir ao portal do cliente (futuro). */
+/** Seção "Resumo em linguagem simples" do painel da intimação. Só um resumo aprovado pode ser publicado no portal do cliente. */
 export function ResumoIntimacao({ intimacaoId, temTexto }: { intimacaoId: string; temTexto: boolean }) {
   const { eu } = useSessao();
   const { avisar } = useToast();
@@ -40,7 +42,7 @@ export function ResumoIntimacao({ intimacaoId, temTexto }: { intimacaoId: string
   const [estado, setEstado] = useState<Estado | null>(null);
   const [carregandoInicial, setCarregandoInicial] = useState(true);
   const [texto, setTexto] = useState("");
-  const [ocupado, setOcupado] = useState<"" | "gerar" | "salvar" | "aprovar" | "rejeitar">("");
+  const [ocupado, setOcupado] = useState<"" | "gerar" | "salvar" | "aprovar" | "rejeitar" | "publicar">("");
   const [erro, setErro] = useState("");
   const [cortado, setCortado] = useState(false);
   const [confirmandoRetirada, setConfirmandoRetirada] = useState(false);
@@ -88,6 +90,20 @@ export function ResumoIntimacao({ intimacaoId, temTexto }: { intimacaoId: string
   const semIa = uso !== undefined && uso.limite === 0;
   const alterado = resumo !== null && texto.trim() !== resumo.texto;
 
+  const publicar = async (publicar: boolean) => {
+    setOcupado("publicar");
+    setErro("");
+    try {
+      await api("POST", `/api/portal-gestao/intimacoes/${intimacaoId}/resumo/${publicar ? "publicar" : "retirar"}`);
+      avisar(publicar ? "Resumo publicado no portal do cliente." : "Resumo retirado do portal do cliente.");
+      carregar();
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : "Algo deu errado. Tente novamente.");
+    } finally {
+      setOcupado("");
+    }
+  };
+
   const aprovar = async () => {
     // Aprova o que está na tela: se o texto foi mexido, salva antes.
     if (alterado && !(await executar("salvar", "PUT", "", { texto }))) return;
@@ -132,8 +148,14 @@ export function ResumoIntimacao({ intimacaoId, temTexto }: { intimacaoId: string
           {cortado && <Aviso tipo="info">A publicação é muito longa: a IA leu só o começo do texto.</Aviso>}
           {resumo.situacao === "aprovado" && resumo.decidido_em && (
             <p className="texto-pequeno" style={{ margin: 0 }}>
-              Aprovado em {formatarData(resumo.decidido_em)}. Quando o portal do cliente existir, só resumos aprovados poderão ser publicados nele.
+              Aprovado em {formatarData(resumo.decidido_em)}.{" "}
+              {resumo.publicado_portal_em ? `Publicado no portal do cliente em ${formatarData(resumo.publicado_portal_em)}.` : "Ainda não está no portal do cliente: o cliente só vê depois que você publicar."}
             </p>
+          )}
+          {resumo.situacao === "aprovado" && resumo.publicado_portal_em && (
+            <Selo tom="info" icone={Eye}>
+              Visível no portal do cliente
+            </Selo>
           )}
           {resumo.situacao === "rejeitado" && <p className="texto-pequeno" style={{ margin: 0 }}>Este resumo foi rejeitado e não será usado. Você pode gerar outro.</p>}
         </>
@@ -161,6 +183,12 @@ export function ResumoIntimacao({ intimacaoId, temTexto }: { intimacaoId: string
                 Rejeitar
               </Botao>
             </>
+          )}
+          {resumo?.situacao === "aprovado" && (
+            <Botao variante={resumo.publicado_portal_em ? "secundario" : "primario"} carregando={ocupado === "publicar"} disabled={ocupado !== ""} onClick={() => void publicar(!resumo.publicado_portal_em)}>
+              {resumo.publicado_portal_em ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              {resumo.publicado_portal_em ? "Retirar do portal" : "Publicar no portal do cliente"}
+            </Botao>
           )}
           {resumo?.situacao === "aprovado" && (
             <Botao variante="secundario" disabled={ocupado !== ""} onClick={() => setConfirmandoRetirada(true)}>
@@ -191,7 +219,7 @@ export function ResumoIntimacao({ intimacaoId, temTexto }: { intimacaoId: string
         aoFechar={() => setConfirmandoRetirada(false)}
         aoConfirmar={() => void executar("rejeitar", "POST", "/rejeitar", undefined, "Aprovação retirada.").then(() => setConfirmandoRetirada(false))}
       >
-        O resumo passa a ficar como rejeitado e deixa de poder ser publicado. Você poderá gerar outro.
+        O resumo passa a ficar como rejeitado, sai do portal do cliente (se estiver publicado) e deixa de poder ser publicado. Você poderá gerar outro.
       </Confirmar>
     </section>
   );

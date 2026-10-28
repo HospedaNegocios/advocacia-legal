@@ -5,7 +5,7 @@
 | Acesso e equipe | Login com e-mail e senha, 2FA por app autenticador, perfis (sócio, advogado, estagiário, secretaria), convite de usuários, log de acessos | Login com Google |
 | Configuração do escritório | Dados do escritório, OABs monitoradas (sem logo própria) | — |
 | Clientes | Cadastro PF/PJ, contatos, documentos anexos, consentimentos LGPD | Importação por planilha |
-| Processos | Cadastro por número CNJ, partes, vara, fase, responsáveis, andamentos manuais, anexos | Consulta automática de andamentos |
+| Processos | Cadastro por número CNJ, partes, vara, fase, responsáveis, andamentos manuais, anexos; o sócio desativa (guarda tudo) ou apaga de vez, com motivo registrado, o que foi cadastrado por engano | Consulta automática de andamentos |
 | Prazos | Data fatal, responsável, status, Kanban, alerta diário 07:00 por e-mail + popup na tela | Cálculo de dias úteis e feriados forenses |
 | Agenda | Audiências, reuniões, diligências por dia/semana/mês | Integração Google Agenda |
 | Financeiro | Honorários, lançamentos, contas a receber, caixa | Recibos em PDF |

@@ -5,6 +5,7 @@ import { Link } from "../roteador";
 import { useSessao } from "../sessao";
 import { Abas, AreaTexto, Aviso, Botao, CabecalhoPagina, Cartao, CampoMarcar, Confirmar, Entrada, EsqueletoLinhas, EstadoErro, EstadoVazio, Formulario, Modal, Selecao, Selo, useToast } from "../ui";
 import { AbaDocumentos, Dado } from "./abas-comuns";
+import { ApagarProcesso } from "./ApagarProcesso";
 import { AbaAgenda, AbaPrazos } from "./AbasAgendaProcesso";
 import { AbaDatajud } from "./AbaDatajud";
 import { AbaIntimacoes } from "./AbaIntimacoes";
@@ -542,6 +543,7 @@ export function ProcessoDetalhe({ id }: { id: string }) {
   const [erro, setErro] = useState("");
   const [editando, setEditando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+  const [apagando, setApagando] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -583,17 +585,29 @@ export function ProcessoDetalhe({ id }: { id: string }) {
     }
   };
 
+  const botaoApagar = (
+    <Botao variante="perigo" onClick={() => setApagando(true)}>
+      <Trash2 size={16} aria-hidden="true" />
+      Apagar processo
+    </Botao>
+  );
   const acoes = ehSocio ? (
     p.ativo ? (
-      <Botao variante="perigo" onClick={() => setConfirmando(true)}>
-        <Ban size={16} aria-hidden="true" />
-        Desativar
-      </Botao>
+      <>
+        <Botao variante="perigo" onClick={() => setConfirmando(true)}>
+          <Ban size={16} aria-hidden="true" />
+          Desativar
+        </Botao>
+        {botaoApagar}
+      </>
     ) : (
-      <Botao onClick={() => void mudarSituacao(true)}>
-        <RotateCcw size={16} aria-hidden="true" />
-        Reativar
-      </Botao>
+      <>
+        <Botao onClick={() => void mudarSituacao(true)}>
+          <RotateCcw size={16} aria-hidden="true" />
+          Reativar
+        </Botao>
+        {botaoApagar}
+      </>
     )
   ) : undefined;
 
@@ -647,6 +661,7 @@ export function ProcessoDetalhe({ id }: { id: string }) {
       <Confirmar aberto={confirmando} aoFechar={() => setConfirmando(false)} titulo="Desativar processo" rotuloConfirmar="Desativar" perigo aoConfirmar={() => void mudarSituacao(false)}>
         Desativar este processo? Ele some da lista padrão e não poderá ser alterado, mas nada é apagado. Você pode reativar depois.
       </Confirmar>
+      {ehSocio && <ApagarProcesso processoId={p.id} aberto={apagando} aoFechar={() => setApagando(false)} />}
     </>
   );
 }

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { Env } from "../env";
 import type { Ctx, Variaveis } from "../contexto";
+import { htmlParaTexto } from "../../comum/html";
 import { FUSO_PADRAO, dataCivilValida, hojeEm, somarDias } from "../../comum/fuso";
 import type { IntimacaoDetalhada, IntimacaoResumida, LinhaResumoIa, OabDaIntimacao, Repositorio } from "../db/repositorio";
 import { criarAcessoAutenticacao } from "../db/repositorio";
@@ -48,7 +49,7 @@ function basePublica(l: Omit<IntimacaoResumida, "texto_inicio"> | Omit<Intimacao
   };
 }
 
-const previa = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, 240);
+const previa = (t: string) => htmlParaTexto(t).replace(/\s+/g, " ").trim().slice(0, 240);
 
 async function listaPublica(repo: Repositorio, linhas: IntimacaoResumida[]) {
   const oabs = await repo.intimacoes.oabsDe(linhas.map((l) => l.id));
@@ -57,7 +58,7 @@ async function listaPublica(repo: Repositorio, linhas: IntimacaoResumida[]) {
 
 async function detalhePublico(repo: Repositorio, l: IntimacaoDetalhada) {
   const oabs = await repo.intimacoes.oabsDe([l.id]);
-  return { ...basePublica(l, oabs), texto: l.texto };
+  return { ...basePublica(l, oabs), texto: htmlParaTexto(l.texto) };
 }
 
 const dataOuNula = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) && dataCivilValida(v) ? v : null);

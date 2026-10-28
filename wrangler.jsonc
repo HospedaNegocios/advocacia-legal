@@ -28,7 +28,9 @@
         // Mesmo ligada, só recebe quem ativou em "Minha conta".
         "EMAIL_ALERTAS_ATIVO": "true",
         // Remetente confirmado pelo dono em 2026-10-28 (precisa ser de um domínio verificado no Resend).
-        "EMAIL_REMETENTE": "alertas@advocacia.legal"
+        "EMAIL_REMETENTE": "alertas@advocacia.legal",
+        // Movimentações pelo DataJud (CNJ): LIGADO só em dev. Também precisa do segredo DATAJUD_CHAVE (workflow configurar-datajud). docs/DATAJUD.md.
+        "DATAJUD_ATIVO": "true"
       },
       // Cron Trigger usa UTC. 10:00 UTC = 07:00 em America/Sao_Paulo (UTC-3 o ano todo: o Brasil não tem horário de verão desde 2019).
       "triggers": { "crons": ["0 10 * * *"] },
@@ -56,7 +58,10 @@
         // Mesmo ligada, só recebe quem ativou em "Minha conta".
         "EMAIL_ALERTAS_ATIVO": "false",
         // Remetente SUGERIDO, a confirmar com o dono (precisa ser de um domínio verificado no Resend).
-        "EMAIL_REMETENTE": "alertas@advocacia.legal"
+        "EMAIL_REMETENTE": "alertas@advocacia.legal",
+        // Movimentações pelo DataJud (CNJ): LIGADO em prod por decisão do dono em 2026-10-28 (uso particular).
+        // Atenção: os termos de uso do CNJ (v1.2, cláusulas 3.3 e 3.8) proíbem uso comercial. docs/DATAJUD.md.
+        "DATAJUD_ATIVO": "true"
       },
       // Cron Trigger usa UTC. 10:00 UTC = 07:00 em America/Sao_Paulo (UTC-3 o ano todo: o Brasil não tem horário de verão desde 2019).
       "triggers": { "crons": ["0 10 * * *"] },

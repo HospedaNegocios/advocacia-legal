@@ -20,6 +20,10 @@ export interface Env {
   EMAIL_REMETENTE?: string;
   /** "false" desliga a busca diária no DJEN (ausente = ligada). */
   DJEN_COLETA_ATIVA?: string;
+  /** "true" liga a consulta de movimentações no DataJud (CNJ). Qualquer outro valor (ou ausente) deixa desligado. Em prod fica "false": os termos do CNJ proíbem uso comercial (docs/DATAJUD.md). */
+  DATAJUD_ATIVO?: string;
+  /** Worker secret: chave pública da API do DataJud (gravada pelo workflow `configurar-datajud`). Nunca em código nem em log. Sem ela o recurso fica desligado. */
+  DATAJUD_CHAVE?: string;
   /** Worker secret: chave de API do Resend (gravada pelo workflow `configurar-resend`). Nunca em código nem em log. */
   RESEND_API_KEY?: string;
   /** Binding Workers AI (resumo das intimações). Ausente = recurso indisponível. */

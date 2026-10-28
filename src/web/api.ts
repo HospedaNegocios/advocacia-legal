@@ -58,6 +58,8 @@ export interface Eu {
   /** Situação da assinatura (teste vencido: somente leitura por 10 dias e depois bloqueio). Ausente para o dono da plataforma. */
   assinatura?: Assinatura;
   pendente_2fa: boolean;
+  /** Recursos ligados neste ambiente (hoje só o DataJud, ligado apenas em dev). Ausente = desligado. */
+  recursos?: { datajud: boolean };
 }
 
 export type SituacaoAssinatura = "normal" | "leitura" | "bloqueado";

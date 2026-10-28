@@ -1,0 +1,69 @@
+name: configurar-datajud
+
+# Grava a chave pública da API do DataJud (CNJ) como segredo do Worker (DATAJUD_CHAVE) no ambiente escolhido.
+# A chave vem do GitHub Secret DATAJUD_CHAVE (copiada da wiki oficial do DataJud) e vai direto para o wrangler
+# por entrada padrão: nunca é exibida em log nem passa por argumento de comando.
+# Se o segredo já existir no Cloudflare, NADA é alterado, a menos que "substituir" seja marcado (o CNJ troca a chave de tempos em tempos).
+# Requer que o Worker do ambiente já tenha sido publicado ao menos uma vez (deploy automático).
+# Este workflow NÃO liga o recurso: quem liga é DATAJUD_ATIVO no wrangler.jsonc (dev = true, prod = false; docs/DATAJUD.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente
+        type: choice
+        required: true
+        options: [dev, prod]
+      substituir:
+        description: Substituir a chave se já existir (troca de chave)
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: configurar-datajud-${{ inputs.ambiente }}
+  cancel-in-progress: false
+
+jobs:
+  configurar:
+    if: inputs.ambiente != 'prod' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AMBIENTE: ${{ inputs.ambiente }}
+      SUBSTITUIR: ${{ inputs.substituir }}
+      CHAVE_DATAJUD: ${{ secrets.DATAJUD_CHAVE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Gravar DATAJUD_CHAVE
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${CHAVE_DATAJUD:-}" ]; then
+            echo "Não há GitHub Secret DATAJUD_CHAVE neste repositório. Crie-o em Settings > Secrets and variables > Actions (com a chave pública da wiki do DataJud) e rode de novo." >&2
+            exit 1
+          fi
+          # Garante que o valor seja mascarado em qualquer saída.
+          echo "::add-mask::$CHAVE_DATAJUD"
+          if ! lista="$(npx wrangler secret list --env "$AMBIENTE" --format json)"; then
+            echo "Não foi possível listar os segredos. O Worker de $AMBIENTE já foi publicado? (o deploy automático precisa ter rodado)" >&2
+            exit 1
+          fi
+          if printf '%s' "$lista" | jq -e 'map(.name) | index("DATAJUD_CHAVE") != null' > /dev/null && [ "$SUBSTITUIR" != "true" ]; then
+            echo "AVISO: DATAJUD_CHAVE já existe em $AMBIENTE. Nada foi alterado. Para trocar a chave, rode de novo marcando 'substituir'."
+            exit 0
+          fi
+          # A chave vai da variável direto para a entrada padrão do wrangler, sem echo nem argumento.
+          printf '%s' "$CHAVE_DATAJUD" | npx wrangler secret put DATAJUD_CHAVE --env "$AMBIENTE" > /dev/null
+          echo "DATAJUD_CHAVE gravada em $AMBIENTE. O recurso continua desligado onde DATAJUD_ATIVO não for \"true\" no wrangler.jsonc (docs/DATAJUD.md)."

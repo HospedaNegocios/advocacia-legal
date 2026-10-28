@@ -19,10 +19,13 @@ import { rotasInicio } from "./rotas/inicio";
 import { rotasAlertas } from "./rotas/alertas";
 import { rotasFinanceiro } from "./rotas/financeiro";
 import { rotasIntimacoes } from "./rotas/intimacoes";
+import { rotasProcessosDatajud } from "./rotas/processos-datajud";
 import { rotasPortal } from "./rotas/portal";
 import { rotasPortalGestao } from "./rotas/portal-gestao";
 import { coletaDiaria } from "./djen/coleta";
 import { depsDjen } from "./djen/ambiente";
+import { coletaDiariaDatajud } from "./datajud/atualizacao";
+import { depsDatajud } from "./datajud/ambiente";
 import { aoAgendar } from "./alertas-email";
 
 // REGRA DE SEGURANÇA: o escritório (tenant) vem SEMPRE da sessão do usuário (cookie validado
@@ -50,6 +53,7 @@ app.route("/api/plataforma", rotasPlataforma);
 app.route("/api/equipe", rotasEquipe);
 app.route("/api/escritorio", rotasEscritorio);
 app.route("/api/clientes", rotasClientes);
+app.route("/api/processos", rotasProcessosDatajud);
 app.route("/api/processos", rotasProcessos);
 app.route("/api/prazos", rotasPrazos);
 app.route("/api/calendario", rotasCalendario);
@@ -83,6 +87,11 @@ export default {
     // Mesmo Cron: busca das publicações do DJEN (1 requisição por segundo; ver src/server/djen/coleta.ts). "DJEN_COLETA_ATIVA=false" desliga.
     if (env.DJEN_COLETA_ATIVA !== "false") {
       ctx.waitUntil(coletaDiaria(depsDjen(env.DB)).then(() => undefined, (e: unknown) => console.error("djen-coleta-erro", e instanceof Error ? e.name : "desconhecido")));
+    }
+    // Mesmo Cron: movimentações do DataJud (CNJ). Só roda com DATAJUD_ATIVO="true" e a chave gravada (em prod fica desligado). Nunca registra número de processo no log.
+    const datajud = depsDatajud(env);
+    if (datajud) {
+      ctx.waitUntil(coletaDiariaDatajud(datajud).then(() => undefined, (e: unknown) => console.error("datajud-coleta-erro", e instanceof Error ? e.name : "desconhecido")));
     }
   },
 } satisfies ExportedHandler<Env>;

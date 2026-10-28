@@ -416,6 +416,62 @@ export interface ConclusaoExecucaoDjen {
   concluida_em: string;
 }
 
+// ---------- DataJud (CNJ) ----------
+
+export type ResultadoDatajud = "ok" | "nao_encontrado" | "sem_tribunal" | "erro" | "bloqueado";
+
+export interface LinhaDatajudConsulta {
+  id: string;
+  tenant_id: string;
+  processo_id: string;
+  consultado_em: string;
+  resultado: ResultadoDatajud;
+  status_http: number | null;
+  alias: string | null;
+  ultima_atualizacao_fonte: string | null;
+  classe: string | null;
+  orgao: string | null;
+  grau: string | null;
+  total_movimentos: number;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface LinhaDatajudMovimento {
+  id: string;
+  tenant_id: string;
+  processo_id: string;
+  chave: string;
+  data_hora: string | null;
+  codigo: string | null;
+  nome: string | null;
+  complementos: string | null;
+  orgao: string | null;
+  grau: string | null;
+  criado_em: string;
+}
+
+export type NovoMovimentoDatajud = Pick<LinhaDatajudMovimento, "chave" | "data_hora" | "codigo" | "nome" | "complementos" | "orgao" | "grau">;
+
+/** Resultado de uma consulta. Os campos opcionais só substituem o que já estava guardado quando vêm preenchidos. */
+export interface RegistroConsultaDatajud {
+  consultado_em: string;
+  resultado: ResultadoDatajud;
+  status_http: number | null;
+  alias: string | null;
+  ultima_atualizacao_fonte?: string | null;
+  classe?: string | null;
+  orgao?: string | null;
+  grau?: string | null;
+}
+
+/** Processo a consultar pelo Cron (vem de vários escritórios; os dados de cada um são gravados depois com `criarRepositorio`). */
+export interface ProcessoParaDatajud {
+  tenant_id: string;
+  processo_id: string;
+  numero_cnj: string;
+}
+
 // ---------- Financeiro ----------
 
 export const TIPOS_LANCAMENTO = ["receita", "despesa"] as const;
@@ -1163,6 +1219,17 @@ export interface Repositorio {
     concluir(id: string, dados: ConclusaoExecucaoDjen): Promise<void>;
     /** Última rodada terminada (qualquer resultado) e última com sucesso, de todas as OABs. */
     situacao(): Promise<{ ultima: Pick<LinhaExecucaoDjen, "resultado" | "concluida_em" | "http_status" | "observacao" | "origem"> | null; ultima_sucesso_em: string | null }>;
+  };
+  /** Movimentações vindas da API Pública do DataJud (CNJ). Ficam só no escritório; não vão para o portal do cliente. */
+  datajud: {
+    /** Situação da última consulta do processo (null = nunca consultado). */
+    buscarConsulta(processoId: string): Promise<LinhaDatajudConsulta | null>;
+    /** Grava (ou atualiza) a situação da consulta do processo e recalcula o total de movimentos. */
+    registrarConsulta(processoId: string, dados: RegistroConsultaDatajud): Promise<void>;
+    /** Grava os movimentos novos (o mesmo movimento nunca entra duas vezes no processo). Devolve quantos eram novos. */
+    inserirMovimentos(processoId: string, itens: NovoMovimentoDatajud[]): Promise<number>;
+    /** Mais recentes primeiro. */
+    movimentosDoProcesso(processoId: string, opcoes?: { limite?: number; deslocamento?: number }): Promise<{ itens: LinhaDatajudMovimento[]; total: number }>;
   };
   /** Permissões por usuário e módulo (hoje só o financeiro). Só usuários ativos do próprio escritório. */
   permissoes: {
@@ -2297,6 +2364,64 @@ export function criarRepositorio(db: D1Database, tenantId: string): Repositorio 
         return { ultima: ultima ?? null, ultima_sucesso_em: ok?.em ?? null };
       },
     },
+    datajud: {
+      async buscarConsulta(processoId) {
+        const l = await db.prepare("SELECT * FROM datajud_consultas WHERE tenant_id = ? AND processo_id = ?").bind(tid, processoId).first<LinhaDatajudConsulta>();
+        return l ?? null;
+      },
+      async registrarConsulta(processoId, d) {
+        await db
+          .prepare(
+            `INSERT INTO datajud_consultas (id, tenant_id, processo_id, consultado_em, resultado, status_http, alias, ultima_atualizacao_fonte, classe, orgao, grau, total_movimentos, criado_em, atualizado_em)
+             SELECT ?, p.tenant_id, p.id, ?, ?, ?, ?, ?, ?, ?, ?,
+                    (SELECT COUNT(*) FROM datajud_movimentos m WHERE m.tenant_id = p.tenant_id AND m.processo_id = p.id), ?, ?
+             FROM processos p WHERE p.tenant_id = ? AND p.id = ?
+             ON CONFLICT (tenant_id, processo_id) DO UPDATE SET
+               consultado_em = excluded.consultado_em, resultado = excluded.resultado, status_http = excluded.status_http, alias = excluded.alias,
+               ultima_atualizacao_fonte = COALESCE(excluded.ultima_atualizacao_fonte, datajud_consultas.ultima_atualizacao_fonte),
+               classe = COALESCE(excluded.classe, datajud_consultas.classe),
+               orgao = COALESCE(excluded.orgao, datajud_consultas.orgao),
+               grau = COALESCE(excluded.grau, datajud_consultas.grau),
+               total_movimentos = excluded.total_movimentos, atualizado_em = excluded.atualizado_em`,
+          )
+          .bind(
+            crypto.randomUUID(), d.consultado_em, d.resultado, d.status_http, d.alias, d.ultima_atualizacao_fonte ?? null, d.classe ?? null, d.orgao ?? null, d.grau ?? null,
+            d.consultado_em, d.consultado_em, tid, processoId,
+          )
+          .run();
+      },
+      async inserirMovimentos(processoId, itens) {
+        if (itens.length === 0) return 0;
+        const ts = agora();
+        const comandos = itens.map((m) =>
+          db
+            .prepare(
+              `INSERT OR IGNORE INTO datajud_movimentos (id, tenant_id, processo_id, chave, data_hora, codigo, nome, complementos, orgao, grau, criado_em)
+               SELECT ?, p.tenant_id, p.id, ?, ?, ?, ?, ?, ?, ?, ? FROM processos p WHERE p.tenant_id = ? AND p.id = ?`,
+            )
+            .bind(crypto.randomUUID(), m.chave, m.data_hora, m.codigo, m.nome, m.complementos, m.orgao, m.grau, ts, tid, processoId),
+        );
+        let novos = 0;
+        // Em lotes, para não passar do limite de comandos por chamada.
+        for (let i = 0; i < comandos.length; i += 50) {
+          const r = await db.batch(comandos.slice(i, i + 50));
+          for (const x of r) novos += x.meta.changes ?? 0;
+        }
+        return novos;
+      },
+      async movimentosDoProcesso(processoId, opcoes = {}) {
+        const limite = Math.min(Math.max(Math.trunc(opcoes.limite ?? LIMITE_PADRAO), 1), LIMITE_MAXIMO);
+        const deslocamento = Math.max(Math.trunc(opcoes.deslocamento ?? 0), 0);
+        const [lista, total] = await Promise.all([
+          db
+            .prepare("SELECT * FROM datajud_movimentos WHERE tenant_id = ? AND processo_id = ? ORDER BY data_hora DESC, id DESC LIMIT ? OFFSET ?")
+            .bind(tid, processoId, limite, deslocamento)
+            .all<LinhaDatajudMovimento>(),
+          db.prepare("SELECT COUNT(*) AS n FROM datajud_movimentos WHERE tenant_id = ? AND processo_id = ?").bind(tid, processoId).first<{ n: number }>(),
+        ]);
+        return { itens: lista.results, total: total?.n ?? 0 };
+      },
+    },
     permissoes: {
       async listarUsuarios(modulo) {
         const { results } = await db
@@ -2672,6 +2797,11 @@ export interface AcessoAgendado {
   oabsParaColetar(limite: number, agora?: number): Promise<OabParaColetar[]>;
   /** Escritórios em teste ou ativos, sem os bloqueados por teste vencido (suspenso e cancelado também ficam de fora), em ordem de id, a partir de `depoisDe`. */
   escritoriosEmOperacao(depoisDe: string | null, limite: number, agora?: number): Promise<EscritorioEmOperacao[]>;
+  /**
+   * PROCESSOS ATIVOS de escritórios em operação (mesma regra de `oabsParaColetar`) para o Cron consultar no DataJud:
+   * os nunca consultados primeiro e depois os de consulta mais antiga. Fica de fora quem foi consultado depois de `consultadoAntesDe` (ISO).
+   */
+  processosParaDatajud(limite: number, consultadoAntesDe: string, agora?: number): Promise<ProcessoParaDatajud[]>;
 }
 
 export function criarAcessoAgendado(db: D1Database): AcessoAgendado {
@@ -2689,6 +2819,21 @@ export function criarAcessoAgendado(db: D1Database): AcessoAgendado {
         )
         .bind(limiteDeBloqueioIso(agoraMs), Math.min(Math.max(Math.trunc(limite), 1), 1000))
         .all<OabParaColetar>();
+      return results;
+    },
+    async processosParaDatajud(limite, consultadoAntesDe, agoraMs = Date.now()) {
+      const { results } = await db
+        .prepare(
+          `SELECT p.tenant_id AS tenant_id, p.id AS processo_id, p.numero_cnj AS numero_cnj
+           FROM processos p JOIN tenants t ON t.id = p.tenant_id
+           LEFT JOIN datajud_consultas c ON c.tenant_id = p.tenant_id AND c.processo_id = p.id
+           WHERE p.ativo = 1 AND t.status IN ('teste', 'ativo')
+             AND NOT (t.status = 'teste' AND t.teste_ate IS NOT NULL AND t.teste_ate < ?)
+             AND (c.consultado_em IS NULL OR c.consultado_em < ?)
+           ORDER BY (c.consultado_em IS NOT NULL), c.consultado_em, p.tenant_id, p.id LIMIT ?`,
+        )
+        .bind(limiteDeBloqueioIso(agoraMs), consultadoAntesDe, Math.min(Math.max(Math.trunc(limite), 1), 1000))
+        .all<ProcessoParaDatajud>();
       return results;
     },
     async escritoriosEmOperacao(depoisDe, limite, agoraMs = Date.now()) {

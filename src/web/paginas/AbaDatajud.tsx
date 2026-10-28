@@ -13,6 +13,7 @@ interface Consulta {
   situacao: Situacao;
   consultado_em: string;
   tribunal: string | null;
+  observacao?: string | null;
   ultima_atualizacao_fonte: string | null;
   classe: string | null;
   orgao: string | null;
@@ -132,6 +133,11 @@ export function AbaDatajud({ p }: { p: Processo }) {
               <p className="texto-pequeno" style={{ margin: 0 }}>
                 Última consulta: {formatarData(consulta.consultado_em)}. {s.texto}
               </p>
+              {(consulta.situacao === "erro" || consulta.situacao === "bloqueado") && consulta.observacao && (
+                <p className="texto-pequeno" style={{ margin: 0 }}>
+                  Detalhe técnico: {consulta.observacao}
+                </p>
+              )}
               {consulta.situacao === "ok" && (
                 <p className="texto-pequeno" style={{ margin: 0 }}>
                   {[consulta.classe, consulta.orgao, consulta.grau ? `Grau ${consulta.grau}` : null].filter(Boolean).join(" · ")}

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { criarRepositorio } from "../src/server/db/repositorio";
 import { atualizarAgora, coletaDiariaDatajud, executarRodadaDatajud, INTERVALO_MANUAL_MS, MAX_REQUISICOES_CRON, ORCAMENTO_CRON_MS, RECENTE_CRON_MS } from "../src/server/datajud/atualizacao";
 import { datajudAtivo, definirDepsDatajudParaTeste } from "../src/server/datajud/ambiente";
-import type { ClienteDatajud, RespostaDatajud } from "../src/server/datajud/cliente";
+import { criarClienteHttp, type ClienteDatajud, type RespostaDatajud } from "../src/server/datajud/cliente";
 import { lerHits, normalizarDataHora, textoDosComplementos } from "../src/server/datajud/formato";
 import { aliasDoTribunal } from "../src/server/datajud/tribunal";
 import { prepararBanco } from "./aplicar-migracoes";
@@ -189,6 +189,43 @@ describe("atualização de um processo", () => {
     expect(rodada).toMatchObject({ erro: 1, requisicoes: 3 });
     expect(relogio.dormidos).toEqual(expect.arrayContaining([2000, 4000]));
     for (let i = 1; i < falha.chamadas.length; i++) expect(falha.chamadas[i]!.em - falha.chamadas[i - 1]!.em).toBeGreaterThanOrEqual(1000);
+  });
+
+  it("erro de rede guarda o detalhe técnico em observacao e o ok limpa", async () => {
+    const t = await criarEscritorio("escritorio");
+    const p = await novoProcesso(t);
+    const relogio = relogioFalso();
+    let falhar = true;
+    const cliente = clienteSimulado(relogio, (_a, n) => (falhar ? { tipo: "erro", status: null, motivo: `rede_TypeError: ${"x".repeat(300)}` } : ok([hit(n)])));
+    const deps = { db: env.DB, cliente, relogio };
+    const r1 = await atualizarAgora(deps, t, p.id, p.numero);
+    expect(r1.resultado).toBe("erro");
+    const repo = criarRepositorio(env.DB, t);
+    const c1 = await repo.datajud.buscarConsulta(p.id);
+    expect(c1).toMatchObject({ resultado: "erro", status_http: null });
+    expect(c1?.observacao?.startsWith("rede_TypeError: ")).toBe(true);
+    expect(c1?.observacao?.length).toBe(200);
+    falhar = false;
+    await atualizarAgora(deps, t, p.id, p.numero);
+    expect((await repo.datajud.buscarConsulta(p.id))?.observacao).toBeNull();
+  });
+
+  it("cliente HTTP: exceção do fetch vira motivo com a mensagem, sem a chave", async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new TypeError("falha SEGREDO123 na conexão\ncom o servidor " + "y".repeat(300));
+    }) as typeof fetch;
+    try {
+      const r = await criarClienteHttp("SEGREDO123").consultar("tjsp", "00000000000000000000");
+      expect(r).toMatchObject({ tipo: "erro", status: null });
+      if (r.tipo !== "erro") throw new Error("esperava erro");
+      expect(r.motivo.startsWith("rede_TypeError: falha ***")).toBe(true);
+      expect(r.motivo).not.toContain("SEGREDO123");
+      expect(r.motivo).not.toContain("\n");
+      expect(r.motivo.length).toBeLessThanOrEqual("rede_TypeError: ".length + 150);
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 
   it("erro 400 não é repetido", async () => {

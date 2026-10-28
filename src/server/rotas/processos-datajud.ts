@@ -25,6 +25,7 @@ const consultaPublica = (l: LinhaDatajudConsulta | null) =>
         situacao: l.resultado,
         consultado_em: l.consultado_em,
         tribunal: l.alias,
+        observacao: l.observacao,
         ultima_atualizacao_fonte: l.ultima_atualizacao_fonte,
         classe: l.classe,
         orgao: l.orgao,
@@ -71,7 +72,7 @@ rotasProcessosDatajud.post("/:id/datajud/atualizar", async (c) => {
   }
   const r = await atualizarAgora(deps, repo.tenantId, p.id, p.numero_cnj);
   // Auditoria só com o resultado e a quantidade (nunca o conteúdo dos movimentos).
-  await registrar(c, "datajud_atualizado", "processos", p.id, { resultado: r.resultado, novos: r.novos });
+  await registrar(c, "datajud_atualizado", "processos", p.id, { resultado: r.resultado, novos: r.novos, ...(r.motivo ? { motivo: r.motivo.slice(0, 200) } : {}) });
   const [consulta, movimentos] = await Promise.all([repo.datajud.buscarConsulta(p.id), repo.datajud.movimentosDoProcesso(p.id, { limite: 20 })]);
   return c.json({ ok: true, disponivel: true, resultado: r.resultado, novos: r.novos, consulta: consultaPublica(consulta), movimentos: movimentos.itens.map(movimentoPublico), total: movimentos.total, pagina: 1, por_pagina: 20 });
 });

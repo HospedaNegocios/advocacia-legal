@@ -2,7 +2,7 @@ import { AlarmClock, AlarmClockOff, CalendarClock, CircleCheck, LayoutGrid, List
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DragEvent } from "react";
 import { ErroApi, api } from "../api";
-import { Link } from "../roteador";
+import { Link, useParametroNovo } from "../roteador";
 import { useSessao } from "../sessao";
 import { TEXTO_SOMENTE_LEITURA, useSomenteLeitura } from "../somente-leitura";
 import { Botao, CabecalhoPagina, Cartao, Confirmar, Entrada, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Indicador, Selecao, SelecaoCompacta, SeletorBusca, Selo, Tabela, useToast } from "../ui";
@@ -65,6 +65,7 @@ export function Prazos() {
   const [processoRotulo, setProcessoRotulo] = useState("");
   const [colunaMovel, setColunaMovel] = useState<StatusPrazo>("a_fazer");
   const [formulario, setFormulario] = useState<{ prazo: Prazo | null } | null>(null);
+  useParametroNovo("/prazos", () => setFormulario({ prazo: null }));
   const [apagando, setApagando] = useState<Prazo | null>(null);
   const [apagandoCarregando, setApagandoCarregando] = useState(false);
   const [arrastando, setArrastando] = useState<string | null>(null);

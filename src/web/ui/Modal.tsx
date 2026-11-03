@@ -7,7 +7,7 @@ import { Botao } from "./Botao";
 const FOCAVEIS = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Diálogo modal: prende o foco, fecha com Esc ou clique no fundo e devolve o foco a quem abriu. */
-export function Modal({ aberto, aoFechar, titulo, descricao, children }: { aberto: boolean; aoFechar: () => void; titulo: string; descricao?: string | undefined; children: ReactNode }) {
+export function Modal({ aberto, aoFechar, titulo, descricao, classe, children }: { aberto: boolean; aoFechar: () => void; titulo: string; descricao?: string | undefined; classe?: string | undefined; children: ReactNode }) {
   const idTitulo = useId();
   const idDescricao = useId();
   const caixa = useRef<HTMLDivElement>(null);
@@ -54,7 +54,7 @@ export function Modal({ aberto, aoFechar, titulo, descricao, children }: { abert
         if (e.target === e.currentTarget) aoFechar();
       }}
     >
-      <div ref={caixa} className="modal" role="dialog" aria-modal="true" aria-labelledby={idTitulo} aria-describedby={descricao ? idDescricao : undefined} onKeyDown={aoTeclar}>
+      <div ref={caixa} className={classe ? `modal ${classe}` : "modal"} role="dialog" aria-modal="true" aria-labelledby={idTitulo} aria-describedby={descricao ? idDescricao : undefined} onKeyDown={aoTeclar}>
         <div className="modal-topo">
           <div>
             <h2 id={idTitulo}>{titulo}</h2>

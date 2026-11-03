@@ -1,5 +1,5 @@
 import { LogOut } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { ErroApi, api } from "../api";
 import { BotaoTema } from "../layout/BotaoTema";
@@ -58,6 +58,13 @@ function CascaPortal({ eu, aoSair, children }: { eu: EuPortal; aoSair: () => voi
 /** Portal do cliente: telas, sessão e cookie próprios (nada em comum com o login do escritório). Só a marca advocacia.legal. */
 export function PortalApp() {
   const caminho = useCaminho();
+  // O portal mantém o visual anterior: tokens.css restaura paleta, fonte e raios antigos quando <html data-area="portal">.
+  useLayoutEffect(() => {
+    document.documentElement.dataset.area = "portal";
+    return () => {
+      delete document.documentElement.dataset.area;
+    };
+  }, []);
   const [eu, setEu] = useState<EuPortal | null | undefined>(undefined);
 
   const carregar = useCallback(async () => {

@@ -1,7 +1,7 @@
 import { Building2, CircleCheck, CirclePause, Plus, Search, UserPlus, UserRound, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ErroApi, api, formatarDia } from "../api";
-import { navegar } from "../roteador";
+import { navegar, useParametroNovo } from "../roteador";
 import { Botao, CabecalhoPagina, Cartao, Empilhada, Entrada, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Indicador, Selecao, Selo, Tabela, useToast } from "../ui";
 import type { Coluna } from "../ui";
 import { ClienteFormulario } from "./ClienteFormulario";
@@ -27,6 +27,7 @@ export function Clientes() {
   const [tipo, setTipo] = useState("");
   const [pagina, setPagina] = useState(1);
   const [novo, setNovo] = useState(false);
+  useParametroNovo("/clientes", () => setNovo(true));
 
   // A busca espera o usuário parar de digitar.
   useEffect(() => {

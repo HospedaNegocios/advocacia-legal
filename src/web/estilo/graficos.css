@@ -77,3 +77,12 @@
 .grafico-tabela th[scope="row"] { font-weight: 500; }
 .grafico-alternar { align-self: flex-start; }
 .grafico-vazio { color: var(--cor-texto-2); font-size: var(--texto-sm); padding: var(--e-6) 0; text-align: center; }
+
+/* Anel de progresso (Início: recebimentos do mês) */
+.anel { position: relative; flex: none; }
+.anel svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.anel-trilho { stroke: var(--cor-superficie-3); }
+.anel-valor { stroke: var(--serie-1); transition: stroke-dashoffset 1s var(--ease); }
+.anel-centro { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.1; }
+.anel-centro b { font-size: var(--texto-xl); font-weight: var(--peso-titulo); color: var(--cor-tinta); font-variant-numeric: tabular-nums; }
+.anel-centro small { font-size: var(--texto-xs); color: var(--cor-texto-3); font-weight: var(--peso-forte); }

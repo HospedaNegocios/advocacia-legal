@@ -1,7 +1,7 @@
 import { Activity, Briefcase, CircleCheck, CirclePause, Plus, Search, UserX, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ErroApi, api, formatarDia } from "../api";
-import { navegar } from "../roteador";
+import { navegar, useParametroNovo } from "../roteador";
 import { Barras, Botao, CabecalhoPagina, Cartao, Entrada, EsqueletoKpi, EsqueletoLinhas, EstadoErro, EstadoVazio, Indicador, Selecao, Selo, Tabela, useToast } from "../ui";
 import type { Coluna } from "../ui";
 import type { Cliente } from "./clientes-comum";
@@ -34,6 +34,7 @@ export function Processos() {
   const [clienteNome, setClienteNome] = useState("");
   const [pagina, setPagina] = useState(1);
   const [novo, setNovo] = useState(false);
+  useParametroNovo("/processos", () => setNovo(true));
 
   useEffect(() => {
     const t = setTimeout(() => {

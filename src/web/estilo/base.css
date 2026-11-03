@@ -1,6 +1,13 @@
 /* Base: fonte, reset, tipografia e foco. Usa somente tokens de tokens.css */
 
-/* Inter (variável), subconjunto latino: cobre todo o português. Empacotada pelo npm, sem CDN. */
+/* Manrope (variável, fonte do app) e Inter (variável, fonte do portal do cliente), subconjunto latino: cobre todo o português. Empacotadas pelo npm, sem CDN. */
+@font-face {
+  font-family: "Manrope Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2") format("woff2-variations");
+}
 @font-face {
   font-family: "Inter Variable";
   font-style: normal;
@@ -27,15 +34,15 @@ body {
   color: var(--cor-texto);
   font-size: var(--texto-base);
   line-height: 1.55;
-  font-feature-settings: "cv11", "ss03";
+  font-feature-settings: var(--fonte-recursos);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4 { margin: 0; line-height: 1.25; letter-spacing: -0.01em; color: var(--cor-texto); }
-h1 { font-size: var(--texto-2xl); font-weight: 700; }
-h2 { font-size: var(--texto-lg); font-weight: 650; }
-h3 { font-size: var(--texto-base); font-weight: 650; }
+h1, h2, h3, h4 { margin: 0; line-height: 1.25; letter-spacing: -0.01em; color: var(--cor-tinta); }
+h1 { font-size: var(--texto-2xl); font-weight: var(--peso-titulo); letter-spacing: var(--tracking-titulo); }
+h2 { font-size: var(--texto-lg); font-weight: var(--peso-subtitulo); }
+h3 { font-size: var(--texto-base); font-weight: var(--peso-subtitulo); }
 p { margin: 0 0 var(--e-3); }
 a { color: var(--cor-marca); text-underline-offset: 3px; }
 a:hover { color: var(--cor-marca-hover); }
@@ -44,6 +51,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 img, svg { max-width: 100%; }
 
 :focus-visible { outline: 3px solid var(--cor-foco); outline-offset: 2px; border-radius: var(--raio-sm); }
+/* Fundo da página com um brilho suave da marca (só no app; o portal fica liso) */
+body { background: radial-gradient(700px 360px at 100% 0%, var(--cor-anel), transparent 70%), linear-gradient(180deg, var(--cor-fundo), var(--cor-fundo-2)); background-attachment: fixed; }
+:root[data-area="portal"] body { background: var(--cor-fundo); }
 
 .so-leitor {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -58,3 +68,4 @@ img, svg { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+[id="titulo-pagina"]:focus-visible { outline: none; } /* foco programático ao trocar de tela: o título não é controle */

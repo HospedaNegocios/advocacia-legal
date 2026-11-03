@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
 
 // Roteador mínimo por History API (o servidor já devolve o index.html para qualquer caminho).
 
@@ -25,12 +25,16 @@ export function Link({
   className,
   atual,
   aoNavegar,
+  style,
+  ...aria
 }: {
   para: string;
   children: ReactNode;
   className?: string | undefined;
   atual?: boolean | undefined;
   aoNavegar?: (() => void) | undefined;
+  style?: CSSProperties | undefined;
+  "aria-label"?: string | undefined;
 }) {
   const aoClicar = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
@@ -39,7 +43,7 @@ export function Link({
     aoNavegar?.();
   };
   return (
-    <a href={para} onClick={aoClicar} className={className} aria-current={atual ? "page" : undefined}>
+    <a href={para} onClick={aoClicar} className={className} style={style} aria-label={aria["aria-label"]} aria-current={atual ? "page" : undefined}>
       {children}
     </a>
   );

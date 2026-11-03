@@ -29,7 +29,8 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | `src/web/ui/graficos/` | Gráficos em SVG/HTML próprios |
 | `src/web/layout/` | Casca (menu lateral, barra superior), tela de acesso, menu do usuário |
 | `src/web/tema.tsx`, `public/tema.js` | Tema Sistema/Claro/Escuro (salvo em `localStorage`, com try/catch) |
-| `src/web/estilo/agenda.css` | Kanban de prazos, Agenda e Início |
+| `src/web/estilo/agenda.css`, `inicio.css` | Kanban de prazos e Agenda (`agenda.css`); Início, régua "Seu dia", semáforo de prazos (`inicio.css`) |
+| `src/web/paginas/Inicio.tsx`, `InicioDia.tsx` | Tela Início (Proposta B): cabeçalho do dia (data, saudação, resumo, ações Compromisso/Novo prazo), "Seu dia" (régua 08h–20h, ampliada se preciso, com blocos de compromissos em cima e prazos embaixo, linha vermelha "agora" de São Paulo atualizada a cada minuto, passados esmaecidos, legenda em texto, rolagem horizontal só dentro do cartão, lista só para leitor de tela; vazio mostra os próximos compromissos), faixa "Números" (links), semáforo Vencidos/Hoje/Próximos dias com botão "concluir" (usa `POST /api/prazos/:id/status`, animação, aviso com "Desfazer"; desativado em somente leitura), "Intimações novas" (`GET /api/intimacoes?situacao=nao_lidas`, mostra a prévia do texto; a lista não traz resumo de IA), "Recebimentos do mês" (só com permissão de financeiro; `GET /api/financeiro/resumo`: recebido no mês e a receber em aberto, sem inventar "previsto do mês") e "Processos ativos por fase". Sem mudança de API |
 | `src/web/portal/`, `src/web/estilo/portal.css` | Portal do cliente (rota `/portal`): casca própria (marca, tema, Sair), login, convite, lista e detalhe do processo. Mesmos tokens e componentes de `ui`; aviso fixo "As informações são um resumo..." em todas as telas |
 | `src/web/paginas/PortalGestao.tsx` | Controles do escritório: cartão "Portal do cliente" no processo, botão por andamento e aba "Portal" do cliente |
 | `site/public/estilo.css` | Site de vendas: tokens copiados de `tokens.css` (repetir mudanças), claro/escuro automático, sem JS; ver `docs/SITE.md` |
@@ -67,6 +68,8 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 | `Abas` (abaixo de 768px as abas quebram de linha, todas visíveis), `Passos`, `Avatar`, `CabecalhoPagina` (com migalhas), `CopiarLink` | Navegação e identificação |
 | `AvisoDePrazos` (`src/web/layout/AlertasPrazos.tsx`) | Popup de prazos vencidos/hoje/amanhã do usuário (usa `Modal`, `SeloPrazo`); selo `.nav-contagem` no item Prazos do menu |
 | `SeletorBusca` | Escolher processo/cliente por busca (lista de resultados, trocar/remover) |
+| `Anel` | Anel de progresso (razão contra um total) com porcentagem no centro e `role="img"`; os valores absolutos vão ao lado em texto. Série 1, trilho neutro |
+| `useToast().avisar(texto, tom, acao?)` | O 3º argumento opcional `{ rotulo, aoClicar }` põe um botão no aviso (ex.: "Desfazer") |
 | `Barras`, `BarrasAgrupadas`, `Empilhada`, `Linha`, `Sparkline`, `Medidor` | Gráficos (abaixo). `BarrasAgrupadas`: 2 a 3 séries lado a lado por categoria (ex.: recebido × pago por mês), legenda sempre, `formatar` para valores, rótulo só na maior barra, tooltip e tabela |
 
 ## Regras de gráficos (resumo do guia dataviz)

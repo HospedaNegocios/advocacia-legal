@@ -42,7 +42,6 @@ const MENU_DONO: ItemMenu[] = [
 // Módulos ainda não construídos (aparecem desativados com "Em breve"). Hoje não há nenhum.
 const MODULOS_BREVE: ItemMenu[] = [];
 
-export const MODULOS_EM_BREVE: readonly ItemMenu[] = MODULOS_BREVE;
 
 /** Atalhos da folha "Criar" (celular). `?novo=1` abre o formulário "novo" da página (ver `useParametroNovo` em roteador.tsx). */
 const ACOES_CRIAR: { rotulo: string; para: string; icone: LucideIcon }[] = [

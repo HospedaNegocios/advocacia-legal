@@ -68,3 +68,4 @@ body { background: radial-gradient(700px 360px at 100% 0%, var(--cor-anel), tran
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+[id="titulo-pagina"]:focus-visible { outline: none; } /* foco programático ao trocar de tela: o título não é controle */

@@ -200,10 +200,6 @@ select.entrada-compacta { min-width: 8.5rem; min-height: 2.25rem; font-size: var
 .pilha { display: grid; gap: var(--e-4); }
 .linha-flex { display: flex; align-items: center; gap: var(--e-3); flex-wrap: wrap; }
 .lista-escolha { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--e-2); }
-.cartoes-modulos { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--e-3); }
-.modulo { display: flex; gap: var(--e-3); align-items: center; padding: var(--e-4); border: 1px dashed var(--cor-borda-campo); border-radius: var(--raio-md); color: var(--cor-texto-2); background: var(--cor-superficie-2); }
-.modulo strong { display: block; color: var(--cor-texto); font-size: var(--texto-sm); }
-.modulo small { font-size: var(--texto-xs); }
 .item-lista-venc { display: flex; align-items: center; gap: var(--e-3); }
 
 /* Trecho de resposta de erro (diagnóstico): código em bloco discreto. */

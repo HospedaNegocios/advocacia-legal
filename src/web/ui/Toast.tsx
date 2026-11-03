@@ -8,9 +8,15 @@ interface ItemToast {
   id: number;
   tom: TomToast;
   texto: string;
+  acao?: AcaoToast | undefined;
+}
+/** Ação opcional do aviso (ex.: "Desfazer"). O aviso fecha ao clicar. */
+export interface AcaoToast {
+  rotulo: string;
+  aoClicar: () => void;
 }
 interface Estado {
-  avisar: (texto: string, tom?: TomToast) => void;
+  avisar: (texto: string, tom?: TomToast, acao?: AcaoToast) => void;
 }
 const Contexto = createContext<Estado | null>(null);
 const ICONE = { ok: CircleCheck, erro: CircleAlert, info: Info };
@@ -20,10 +26,10 @@ export function ProvedorToast({ children }: { children: ReactNode }) {
   const proximo = useRef(1);
   const fechar = useCallback((id: number) => setItens((l) => l.filter((i) => i.id !== id)), []);
   const avisar = useCallback(
-    (texto: string, tom: TomToast = "ok") => {
+    (texto: string, tom: TomToast = "ok", acao?: AcaoToast) => {
       const id = proximo.current++;
-      setItens((l) => [...l.slice(-3), { id, tom, texto }]);
-      window.setTimeout(() => fechar(id), tom === "erro" ? 9000 : 5000);
+      setItens((l) => [...l.slice(-3), { id, tom, texto, acao }]);
+      window.setTimeout(() => fechar(id), tom === "erro" ? 9000 : acao ? 8000 : 5000);
     },
     [fechar],
   );
@@ -37,6 +43,19 @@ export function ProvedorToast({ children }: { children: ReactNode }) {
             <div key={i.id} className="toast" data-tom={i.tom} role={i.tom === "erro" ? "alert" : "status"}>
               <Icone size={18} className="toast-icone" aria-hidden="true" />
               <span className="toast-texto">{i.texto}</span>
+              {i.acao && (
+                <Botao
+                  variante="fantasma"
+                  tamanho="pequeno"
+                  leitura
+                  onClick={() => {
+                    i.acao?.aoClicar();
+                    fechar(i.id);
+                  }}
+                >
+                  {i.acao.rotulo}
+                </Botao>
+              )}
               <Botao variante="fantasma" tamanho="pequeno" somenteIcone aria-label="Dispensar notificação" onClick={() => fechar(i.id)}>
                 <X size={16} aria-hidden="true" />
               </Botao>

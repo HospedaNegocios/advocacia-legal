@@ -5,11 +5,20 @@
    manual (data-tema="escuro" / "claro" no <html>, definido pelo botão de tema).
    ATENÇÃO: o bloco escuro aparece DUAS vezes (automático e manual). Mantenha os
    dois idênticos.
+   Visual "Proposta B" (petróleo + ouro, Manrope, menu flutuante). O PORTAL DO
+   CLIENTE (/portal) mantém o visual anterior: PortalApp põe data-area="portal"
+   no <html> e os blocos :root[data-area="portal"] no fim deste arquivo
+   restauram os valores antigos (azul-índigo, Inter, raios menores).
    ========================================================================== */
 
 :root {
   /* Tipografia */
-  --fonte: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte: "Manrope Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-recursos: normal;
+  --peso-forte: 700;
+  --peso-subtitulo: 750;
+  --peso-titulo: 800;
+  --tracking-titulo: -0.03em;
   --fonte-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --texto-xs: 0.75rem;
   --texto-sm: 0.875rem;
@@ -32,23 +41,295 @@
   --e-16: 4rem;
 
   /* Raios */
-  --raio-sm: 6px;
-  --raio-md: 10px;
-  --raio-lg: 14px;
+  --raio-sm: 8px;
+  --raio-md: 12px;
+  --raio-lg: 18px;
+  --raio-xl: 22px;
+  --raio-topo: 18px;
   --raio-pilula: 999px;
 
   /* Movimento */
-  --dur-rapida: 120ms;
-  --dur: 200ms;
-  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-rapida: 150ms;
+  --dur: 250ms;
+  --ease: cubic-bezier(0.22, 0.9, 0.24, 1);
+  --mola: cubic-bezier(0.34, 1.5, 0.64, 1);
+  --btn-press: scale(0.97);
+  --lift: translateY(-2px);
+  --sombra-hover: var(--sombra-2);
+  --foco-anel: 0 0 0 4px color-mix(in srgb, var(--cor-foco) 28%, transparent);
 
   /* Medidas de layout */
-  --lateral-larga: 17rem;
-  --lateral-estreita: 4.5rem;
+  --lateral-larga: 15.5rem;
+  --lateral-estreita: 4.75rem;
+  --lateral-margem: 0.875rem;
   --topo-altura: 3.5rem;
   --alvo-toque: 2.75rem; /* 44px */
+  --barra-inferior-altura: 4rem;
 
   color-scheme: light;
+  --cor-fundo: #eef2f1;
+  --cor-fundo-2: #e4ebe9;
+  --cor-superficie: #ffffff;
+  --cor-superficie-2: #f5f8f7;
+  --cor-superficie-3: #e9efed;
+  --cor-borda: #dbe3e1;
+  --cor-borda-forte: #c3cfcc;
+  --cor-borda-campo: #6f8683;
+  --cor-texto: #142a2e;
+  --cor-texto-2: #4b6266;
+  --cor-texto-3: #566c70;
+  --cor-tinta: #0e1f22;
+  --cor-tinta-texto: #ffffff;
+  --cor-marca: #0f5e6e;
+  --cor-marca-hover: #0a4652;
+  --cor-marca-texto: #ffffff;
+  --cor-marca-suave: #dcefef;
+  --cor-marca-suave-texto: #0a4652;
+  --cor-ouro: #8a6414;
+  --cor-ouro-suave: #f6ecd6;
+  --cor-acao: #0e1f22;
+  --cor-acao-hover: #0a4652;
+  --cor-acao-texto: #ffffff;
+  --cor-ouro-vivo: #b9862c;
+  --selo-marca-fundo: var(--cor-marca);
+  --selo-marca-texto: var(--cor-marca-texto);
+  --selo-marca-brilho: var(--cor-ouro-vivo);
+  --cor-destaque: #8a6414;
+  --cor-foco: #0f5e6e;
+  --cor-anel: rgba(15, 94, 110, 0.18);
+  --cor-vidro: rgba(255, 255, 255, 0.72);
+  --cor-lateral: var(--cor-vidro);
+  --cor-lateral-2: var(--cor-superficie-3);
+  --cor-lateral-texto: var(--cor-texto-2);
+  --cor-lateral-texto-forte: var(--cor-texto);
+  --cor-lateral-destaque: var(--cor-ouro);
+  --cor-lateral-borda: var(--cor-borda);
+  --cor-sobreposicao: rgba(4, 10, 12, 0.5);
+  --st-bom-fundo: #e1f3e9;
+  --st-bom-texto: #1d7a4f;
+  --st-aviso-fundo: #fbf0d6;
+  --st-aviso-texto: #8a5a00;
+  --st-critico-fundo: #fbe9e7;
+  --st-critico-texto: #b42b2b;
+  --st-neutro-fundo: #e9efed;
+  --st-neutro-texto: #3b5256;
+  --st-info-fundo: #dcefef;
+  --st-info-texto: #0a4652;
+  --sombra-1: 0 1px 2px rgba(14, 31, 34, 0.06);
+  --sombra-2: 0 12px 32px -14px rgba(14, 31, 34, 0.25), 0 2px 6px rgba(14, 31, 34, 0.04);
+  --sombra-3: 0 30px 70px -24px rgba(14, 31, 34, 0.45);
+  /* Gráficos: séries validadas com scripts/validate_palette.js (ver docs/DESIGN.md); grade e eixo seguem os neutros da marca */
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-5: #e87ba4;
+  --serie-6: #008300;
+  --serie-7: #6250d6;
+  --serie-8: #e34948;
+  --ordinal-1: #86b6ef;
+  --ordinal-2: #3987e5;
+  --ordinal-3: #1c5cab;
+  --grafico-bom: #0ca30c;
+  --grafico-aviso: #fab219;
+  --grafico-grave: #ec835a;
+  --grafico-critico: #d03b3b;
+  --grafico-neutro: #898781;
+  --grafico-grade: #dbe3e1;
+  --grafico-eixo: #c3cfcc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    color-scheme: dark;
+    --cor-fundo: #071113;
+    --cor-fundo-2: #0b181b;
+    --cor-superficie: #0f1d20;
+    --cor-superficie-2: #132427;
+    --cor-superficie-3: #182b2f;
+    --cor-borda: #1d3236;
+    --cor-borda-forte: #2a464b;
+    --cor-borda-campo: #5f7b7e;
+    --cor-texto: #e3efed;
+    --cor-texto-2: #a3b9b6;
+    --cor-texto-3: #82999a;
+    --cor-tinta: #e9f4f2;
+    --cor-tinta-texto: #071113;
+    --cor-marca: #4fc1c9;
+    --cor-marca-hover: #7ad6dc;
+    --cor-marca-texto: #071113;
+    --cor-marca-suave: #10343a;
+    --cor-marca-suave-texto: #a6e6ea;
+    --cor-ouro: #e7b85a;
+    --cor-ouro-suave: #33280f;
+    --cor-acao: #e9f4f2;
+    --cor-acao-hover: #ffffff;
+    --cor-acao-texto: #071113;
+    --cor-ouro-vivo: #e7b85a;
+    --selo-marca-fundo: var(--cor-marca);
+  --selo-marca-texto: var(--cor-marca-texto);
+    --selo-marca-brilho: var(--cor-ouro-vivo);
+    --cor-destaque: #e7b85a;
+    --cor-foco: #4fc1c9;
+    --cor-anel: rgba(79, 193, 201, 0.22);
+    --cor-vidro: rgba(7, 17, 19, 0.72);
+    --cor-lateral: var(--cor-vidro);
+    --cor-lateral-2: var(--cor-superficie-3);
+    --cor-lateral-texto: var(--cor-texto-2);
+    --cor-lateral-texto-forte: var(--cor-texto);
+    --cor-lateral-destaque: var(--cor-ouro);
+    --cor-lateral-borda: var(--cor-borda);
+    --cor-sobreposicao: rgba(2, 7, 8, 0.7);
+    --st-bom-fundo: #0f2c20;
+    --st-bom-texto: #66d39c;
+    --st-aviso-fundo: #33260b;
+    --st-aviso-texto: #f3c464;
+    --st-critico-fundo: #3a1614;
+    --st-critico-texto: #ff8f86;
+    --st-neutro-fundo: #182b2f;
+    --st-neutro-texto: #a3b9b6;
+    --st-info-fundo: #10343a;
+    --st-info-texto: #a6e6ea;
+      --sombra-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --sombra-2: 0 16px 36px -16px rgba(0, 0, 0, 0.8);
+    --sombra-3: 0 30px 70px -20px rgba(0, 0, 0, 0.85);
+    --serie-1: #3987e5;
+    --serie-2: #d95926;
+    --serie-3: #199e70;
+    --serie-4: #c98500;
+    --serie-5: #d55181;
+    --serie-6: #008300;
+    --serie-7: #9085e9;
+    --serie-8: #e66767;
+    --ordinal-1: #2a78d6;
+    --ordinal-2: #5598e7;
+    --ordinal-3: #9ec5f4;
+    --grafico-bom: #0ca30c;
+    --grafico-aviso: #fab219;
+    --grafico-grave: #ec835a;
+    --grafico-critico: #d03b3b;
+    --grafico-neutro: #898781;
+    --grafico-grade: #1d3236;
+    --grafico-eixo: #2a464b;
+  }
+}
+
+:root[data-tema="escuro"] {
+  color-scheme: dark;
+  --cor-fundo: #071113;
+  --cor-fundo-2: #0b181b;
+  --cor-superficie: #0f1d20;
+  --cor-superficie-2: #132427;
+  --cor-superficie-3: #182b2f;
+  --cor-borda: #1d3236;
+  --cor-borda-forte: #2a464b;
+  --cor-borda-campo: #5f7b7e;
+  --cor-texto: #e3efed;
+  --cor-texto-2: #a3b9b6;
+  --cor-texto-3: #82999a;
+  --cor-tinta: #e9f4f2;
+  --cor-tinta-texto: #071113;
+  --cor-marca: #4fc1c9;
+  --cor-marca-hover: #7ad6dc;
+  --cor-marca-texto: #071113;
+  --cor-marca-suave: #10343a;
+  --cor-marca-suave-texto: #a6e6ea;
+  --cor-ouro: #e7b85a;
+  --cor-ouro-suave: #33280f;
+  --cor-acao: #e9f4f2;
+  --cor-acao-hover: #ffffff;
+  --cor-acao-texto: #071113;
+  --cor-ouro-vivo: #e7b85a;
+  --selo-marca-fundo: var(--cor-marca);
+  --selo-marca-texto: var(--cor-marca-texto);
+  --selo-marca-brilho: var(--cor-ouro-vivo);
+  --cor-destaque: #e7b85a;
+  --cor-foco: #4fc1c9;
+  --cor-anel: rgba(79, 193, 201, 0.22);
+  --cor-vidro: rgba(7, 17, 19, 0.72);
+  --cor-lateral: var(--cor-vidro);
+  --cor-lateral-2: var(--cor-superficie-3);
+  --cor-lateral-texto: var(--cor-texto-2);
+  --cor-lateral-texto-forte: var(--cor-texto);
+  --cor-lateral-destaque: var(--cor-ouro);
+  --cor-lateral-borda: var(--cor-borda);
+  --cor-sobreposicao: rgba(2, 7, 8, 0.7);
+  --st-bom-fundo: #0f2c20;
+  --st-bom-texto: #66d39c;
+  --st-aviso-fundo: #33260b;
+  --st-aviso-texto: #f3c464;
+  --st-critico-fundo: #3a1614;
+  --st-critico-texto: #ff8f86;
+  --st-neutro-fundo: #182b2f;
+  --st-neutro-texto: #a3b9b6;
+  --st-info-fundo: #10343a;
+  --st-info-texto: #a6e6ea;
+  --sombra-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --sombra-2: 0 16px 36px -16px rgba(0, 0, 0, 0.8);
+  --sombra-3: 0 30px 70px -20px rgba(0, 0, 0, 0.85);
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+  --serie-6: #008300;
+  --serie-7: #9085e9;
+  --serie-8: #e66767;
+  --ordinal-1: #2a78d6;
+  --ordinal-2: #5598e7;
+  --ordinal-3: #9ec5f4;
+  --grafico-bom: #0ca30c;
+  --grafico-aviso: #fab219;
+  --grafico-grave: #ec835a;
+  --grafico-critico: #d03b3b;
+  --grafico-neutro: #898781;
+  --grafico-grade: #1d3236;
+  --grafico-eixo: #2a464b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-rapida: 0.01ms;
+    --dur: 0.01ms;
+    --btn-press: none;
+    --lift: none;
+  }
+}
+
+/* ==========================================================================
+   PORTAL DO CLIENTE: visual anterior (azul-índigo, Inter, raios menores).
+   Só vale com <html data-area="portal"> (definido por PortalApp). Não editar
+   junto com a paleta do app: o portal não faz parte da Proposta B.
+   ========================================================================== */
+:root[data-area="portal"] {
+  --fonte: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-recursos: "cv11", "ss03";
+  --peso-forte: 600;
+  --peso-subtitulo: 650;
+  --peso-titulo: 700;
+  --tracking-titulo: -0.01em;
+  --sombra-hover: none;
+  --foco-anel: 0 0 0 3px color-mix(in srgb, var(--cor-foco) 35%, transparent);
+  --raio-sm: 6px;
+  --raio-md: 10px;
+  --raio-lg: 14px;
+  --raio-xl: 14px;
+  --raio-topo: 14px;
+  --btn-press: translateY(1px);
+  --lift: none;
+  --cor-tinta: #0f172a;
+  --cor-tinta-texto: #ffffff;
+  --cor-vidro: var(--cor-superficie);
+  --cor-ouro: #a35f00;
+  --cor-ouro-suave: #fdf1d6;
+  --cor-acao: #2f43a3;
+  --cor-acao-hover: #26368a;
+  --cor-acao-texto: #ffffff;
+  --cor-ouro-vivo: #a35f00;
+  --selo-marca-fundo: linear-gradient(145deg, #4a62d6, #2f43a3);
+  --selo-marca-texto: #ffffff;
+  --selo-marca-brilho: transparent;
+  --cor-anel: rgba(47, 111, 237, 0.25);
   --cor-fundo: #f3f5fa;
   --cor-superficie: #ffffff;
   --cor-superficie-2: #f7f8fc;
@@ -105,69 +386,78 @@
   --grafico-grade: #e1e0d9;
   --grafico-eixo: #c3c2b7;
 }
-
 @media (prefers-color-scheme: dark) {
-  :root:not([data-tema="claro"]) {
-  color-scheme: dark;
-  --cor-fundo: #0b0f1a;
-  --cor-superficie: #151b2b;
-  --cor-superficie-2: #1a2236;
-  --cor-superficie-3: #232d46;
-  --cor-borda: #2a3350;
-  --cor-borda-campo: #7684a3;
-  --cor-texto: #e8ecf6;
-  --cor-texto-2: #b0bad0;
-  --cor-texto-3: #94a0ba;
-  --cor-marca: #93a8ff;
-  --cor-marca-hover: #b0c0ff;
-  --cor-marca-texto: #0b0f1a;
-  --cor-marca-suave: #222c52;
-  --cor-marca-suave-texto: #c3cfff;
-  --cor-destaque: #f2b45a;
-  --cor-foco: #7aa7ff;
-  --cor-lateral: #0f1528;
-  --cor-lateral-2: #1a2342;
-  --cor-lateral-texto: #b9c3de;
-  --cor-lateral-texto-forte: #ffffff;
-  --cor-lateral-destaque: #f2b45a;
-  --cor-lateral-borda: rgba(255, 255, 255, 0.08);
-  --cor-sobreposicao: rgba(2, 5, 12, 0.7);
-  --st-bom-fundo: #12301f;
-  --st-bom-texto: #7fdc9c;
-  --st-aviso-fundo: #3a2c0a;
-  --st-aviso-texto: #f4c363;
-  --st-critico-fundo: #3d1717;
-  --st-critico-texto: #ff9b9b;
-  --st-neutro-fundo: #232d46;
-  --st-neutro-texto: #b9c3de;
-  --st-info-fundo: #222c52;
-  --st-info-texto: #c3cfff;
-  --sombra-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --sombra-2: 0 4px 12px rgba(0, 0, 0, 0.45);
-  --sombra-3: 0 16px 40px rgba(0, 0, 0, 0.6);
-  --serie-1: #3987e5;
-  --serie-2: #d95926;
-  --serie-3: #199e70;
-  --serie-4: #c98500;
-  --serie-5: #d55181;
-  --serie-6: #008300;
-  --serie-7: #9085e9;
-  --serie-8: #e66767;
-  --ordinal-1: #2a78d6;
-  --ordinal-2: #5598e7;
-  --ordinal-3: #9ec5f4;
-  --grafico-bom: #0ca30c;
-  --grafico-aviso: #fab219;
-  --grafico-grave: #ec835a;
-  --grafico-critico: #d03b3b;
-  --grafico-neutro: #898781;
-  --grafico-grade: #2c3350;
-  --grafico-eixo: #3b4565;
+  :root[data-area="portal"]:not([data-tema="claro"]) {
+    --cor-fundo: #0b0f1a;
+    --cor-superficie: #151b2b;
+    --cor-superficie-2: #1a2236;
+    --cor-superficie-3: #232d46;
+    --cor-borda: #2a3350;
+    --cor-borda-campo: #7684a3;
+    --cor-texto: #e8ecf6;
+    --cor-texto-2: #b0bad0;
+    --cor-texto-3: #94a0ba;
+    --cor-marca: #93a8ff;
+    --cor-marca-hover: #b0c0ff;
+    --cor-marca-texto: #0b0f1a;
+    --cor-marca-suave: #222c52;
+    --cor-marca-suave-texto: #c3cfff;
+    --cor-destaque: #f2b45a;
+    --cor-foco: #7aa7ff;
+    --cor-lateral: #0f1528;
+    --cor-lateral-2: #1a2342;
+    --cor-lateral-texto: #b9c3de;
+    --cor-lateral-texto-forte: #ffffff;
+    --cor-lateral-destaque: #f2b45a;
+    --cor-lateral-borda: rgba(255, 255, 255, 0.08);
+    --cor-sobreposicao: rgba(2, 5, 12, 0.7);
+    --st-bom-fundo: #12301f;
+    --st-bom-texto: #7fdc9c;
+    --st-aviso-fundo: #3a2c0a;
+    --st-aviso-texto: #f4c363;
+    --st-critico-fundo: #3d1717;
+    --st-critico-texto: #ff9b9b;
+    --st-neutro-fundo: #232d46;
+    --st-neutro-texto: #b9c3de;
+    --st-info-fundo: #222c52;
+    --st-info-texto: #c3cfff;
+    --sombra-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --sombra-2: 0 4px 12px rgba(0, 0, 0, 0.45);
+    --sombra-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+    --serie-1: #3987e5;
+    --serie-2: #d95926;
+    --serie-3: #199e70;
+    --serie-4: #c98500;
+    --serie-5: #d55181;
+    --serie-6: #008300;
+    --serie-7: #9085e9;
+    --serie-8: #e66767;
+    --ordinal-1: #2a78d6;
+    --ordinal-2: #5598e7;
+    --ordinal-3: #9ec5f4;
+    --grafico-bom: #0ca30c;
+    --grafico-aviso: #fab219;
+    --grafico-grave: #ec835a;
+    --grafico-critico: #d03b3b;
+    --grafico-neutro: #898781;
+    --grafico-grade: #2c3350;
+    --grafico-eixo: #3b4565;
+    --cor-tinta: #e8ecf6;
+    --cor-tinta-texto: #0b0f1a;
+    --cor-vidro: var(--cor-superficie);
+    --cor-ouro: #f2b45a;
+    --cor-ouro-suave: #3a2c0a;
+    --cor-acao: #93a8ff;
+    --cor-acao-hover: #b0c0ff;
+    --cor-acao-texto: #0b0f1a;
+    --cor-ouro-vivo: #f2b45a;
+    --selo-marca-fundo: linear-gradient(145deg, #4a62d6, #2f43a3);
+  --selo-marca-texto: #ffffff;
+    --selo-marca-brilho: transparent;
+    --cor-anel: rgba(122, 167, 255, 0.3);
   }
 }
-
-:root[data-tema="escuro"] {
-  color-scheme: dark;
+:root[data-area="portal"][data-tema="escuro"] {
   --cor-fundo: #0b0f1a;
   --cor-superficie: #151b2b;
   --cor-superficie-2: #1a2236;
@@ -222,11 +512,20 @@
   --grafico-neutro: #898781;
   --grafico-grade: #2c3350;
   --grafico-eixo: #3b4565;
+  --cor-tinta: #e8ecf6;
+  --cor-tinta-texto: #0b0f1a;
+  --cor-vidro: var(--cor-superficie);
+  --cor-ouro: #f2b45a;
+  --cor-ouro-suave: #3a2c0a;
+  --cor-acao: #93a8ff;
+  --cor-acao-hover: #b0c0ff;
+  --cor-acao-texto: #0b0f1a;
+  --cor-ouro-vivo: #f2b45a;
+  --selo-marca-fundo: linear-gradient(145deg, #4a62d6, #2f43a3);
+  --selo-marca-texto: #ffffff;
+  --selo-marca-brilho: transparent;
+  --cor-anel: rgba(122, 167, 255, 0.3);
 }
-
 @media (prefers-reduced-motion: reduce) {
-  :root {
-    --dur-rapida: 0.01ms;
-    --dur: 0.01ms;
-  }
+  :root[data-area="portal"] { --btn-press: none; }
 }

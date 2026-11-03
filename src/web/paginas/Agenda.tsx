@@ -2,6 +2,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { hojeEm } from "../../comum/fuso";
 import { ErroApi, api } from "../api";
+import { useParametroNovo } from "../roteador";
 import { Botao, CabecalhoPagina, Cartao, EsqueletoLinhas, EstadoErro, EstadoVazio, useToast } from "../ui";
 import { ICONE_TIPO_EVENTO, diasDoEvento, horarioEvento } from "./agenda-comum";
 import type { Evento, UsuarioBasico } from "./agenda-comum";
@@ -39,6 +40,7 @@ export function Agenda() {
   const [usuarios, setUsuarios] = useState<UsuarioBasico[]>([]);
   const [aberto, setAberto] = useState<Evento | null>(null);
   const [formulario, setFormulario] = useState<{ evento: Evento | null; data: string } | null>(null);
+  useParametroNovo("/agenda", () => setFormulario({ evento: null, data: hoje }));
 
   const { de, ate } = useMemo(() => janelaDaVisao(visao, ancora), [visao, ancora]);
   const dias = useMemo(() => diasDaVisao(visao, ancora), [visao, ancora]);

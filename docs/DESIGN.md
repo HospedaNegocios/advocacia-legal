@@ -4,14 +4,21 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 **As cores da marca são uma proposta**: para mudar a identidade, edite apenas `src/web/estilo/tokens.css`.
 
 ## Logotipo
-`src/web/ui/Marca.tsx` é um logotipo **provisório** (ícone de balança + texto "advocacia.legal"). Quando houver um logotipo definitivo, troque só esse arquivo: ele é usado no menu lateral, na barra superior do celular, na gaveta e nas telas de acesso. O texto da marca usa sempre a cor cheia do contexto (branco no menu e no painel escuro, `--cor-texto` na barra clara), peso 700, sem opacidade (contraste ≥ 7:1).
+`src/web/ui/Marca.tsx` é um logotipo **provisório** (ícone de balança + texto "advocacia.legal"). Quando houver um logotipo definitivo, troque só esse arquivo: ele é usado no menu lateral, na barra superior do celular, na gaveta e nas telas de acesso. O texto da marca usa sempre a cor cheia do contexto (`--cor-tinta` no menu, na barra e no painel de acesso), peso `--peso-titulo`, sem opacidade (contraste ≥ 7:1).
+
+## Visual "Proposta B" (petróleo + ouro)
+- Paleta: azul-petróleo (`--cor-marca` `#0f5e6e`, no escuro `#4fc1c9`), ouro como detalhe (`--cor-ouro`, `--cor-ouro-vivo`: ponto do logo, brilho do selo), neutros frios esverdeados e "tinta" (`--cor-tinta` `#0e1f22`, invertida no escuro) para o item ativo do menu e os botões primários (`--cor-acao*`).
+- Fonte: **Manrope** variável (`@fontsource-variable/manrope`, `--fonte`), com a pilha do sistema como reserva. Pesos por token: `--peso-forte`, `--peso-subtitulo`, `--peso-titulo`.
+- Casca: **menu lateral flutuante** (cartão de vidro destacado 14px da borda, raio 22px, `--cor-vidro` + desfoque, borda e sombra); item ativo = pílula de tinta; rótulos de grupo em caixa alta (Escritório, Cadastros, Administração; o dono vê "Plataforma"); selos de contagem (vermelho para prazos); recolhe para só ícones com dicas (tooltips por CSS, texto continua para leitor de tela) pelo botão "Recolher menu" no rodapé do menu (chave `lateral` no `localStorage`). **Barra superior flutuante** de vidro (sticky, raio 18px) com o nome do escritório e o menu do usuário. Cartões com raio 22px e borda sutil; cartões clicáveis (`a.cartao`, `[data-clicavel]`) sobem ao passar o mouse; botões com "pressionar" (`--btn-press`).
+- Celular (< 768px): o menu vira gaveta e aparece uma **barra inferior flutuante** (só para usuários de escritório): Início, Prazos (selo), botão central "+" (abre a folha **Criar**: Prazo, Compromisso, Cliente, Processo), Intimações (selo) e Menu (abre a gaveta). A folha é um `Modal` (foco preso, Esc fecha e devolve o foco). Os atalhos navegam para `/prazos?novo=1`, `/agenda?novo=1`, `/clientes?novo=1` e `/processos?novo=1`; cada lista usa `useParametroNovo` (`roteador.tsx`) para abrir o seu formulário "novo". Em somente leitura o "+" fica desativado. O conteúdo ganha folga inferior para não ficar atrás da barra.
+- **O portal do cliente NÃO mudou de visual.** `PortalApp` põe `data-area="portal"` no `<html>` e os blocos `:root[data-area="portal"]` no fim de `tokens.css` restauram a paleta azul-índigo, a fonte Inter, os raios antigos, pesos, sombras e o selo da marca antigos (verificado por captura de tela: pixels idênticos). Ao criar um componente compartilhado com o portal, use só tokens (nunca cor, raio, peso ou sombra soltos) e confira o portal.
 
 ## Princípios
-- Sóbrio e confiável: azul-marinho/índigo, cinzas frios, um destaque dourado (só em detalhes: item ativo do menu e ponto do logo).
+- Sóbrio e confiável: azul-petróleo, cinzas frios, um destaque dourado (só em detalhes).
 - Dados primeiro: indicadores no topo, gráficos finos e silenciosos, tabelas legíveis.
 - Nada depende só de cor: estado = ícone + texto.
 - Mobile de verdade: sem rolagem horizontal, alvos de toque de 44px.
-- CSP estrita (`'self'`): sem CDN, fontes e ícones vêm do npm (`@fontsource-variable/inter`, `lucide-react`). Nada de `<script>` inline (o tema inicial vem de `public/tema.js`).
+- CSP estrita (`'self'`): sem CDN, fontes e ícones vêm do npm (`@fontsource-variable/manrope` no app, `@fontsource-variable/inter` no portal, `lucide-react`). Nada de `<script>` inline (o tema inicial vem de `public/tema.js`).
 
 ## Arquivos
 | Onde | O quê |
@@ -33,15 +40,15 @@ Sistema visual do app. Só existe a marca advocacia.legal (sem personalização 
 
 ## Tokens
 - Cores de superfície/texto: `--cor-fundo`, `--cor-superficie(-2/-3)`, `--cor-borda`, `--cor-borda-campo` (3:1), `--cor-texto`, `--cor-texto-2`, `--cor-texto-3` (todos AA 4.5:1 sobre as superfícies).
-- Marca: `--cor-marca`, `--cor-marca-hover`, `--cor-marca-texto`, `--cor-marca-suave(-texto)`, `--cor-destaque`, `--cor-foco`; menu lateral: `--cor-lateral*`.
+- Marca: `--cor-marca`, `--cor-marca-hover`, `--cor-marca-texto`, `--cor-marca-suave(-texto)`, `--cor-destaque`, `--cor-foco`; menu lateral: `--cor-lateral*` (agora claro, de vidro); novos: `--cor-tinta(-texto)`, `--cor-acao(-hover|-texto)`, `--cor-ouro(-vivo|-suave)`, `--cor-vidro`, `--cor-anel`, `--cor-fundo-2`, `--cor-borda-forte` (só na casca), `--selo-marca-*`.
 - Estados (selo/aviso): `--st-bom|aviso|critico|neutro|info-fundo|texto`.
 - Gráficos: `--serie-1..8`, `--ordinal-1..3`, `--grafico-bom|aviso|grave|critico|neutro|grade|eixo`.
-- Tipografia: Inter variável (`--fonte`), escala `--texto-xs … --texto-3xl`. Espaços `--e-1 … --e-16` (base 4px). Raios `--raio-sm|md|lg|pilula`. Sombras `--sombra-1..3`. Movimento `--dur-rapida`, `--dur`, `--ease` (zerados com `prefers-reduced-motion`).
-- Tema escuro: bloco repetido duas vezes em `tokens.css` (automático por `prefers-color-scheme` e manual por `data-tema="escuro"`). Mantenha idênticos. Contraste de texto verificado em ambos os temas.
+- Tipografia: Manrope variável (`--fonte`; Inter no portal), escala `--texto-xs … --texto-3xl`. Espaços `--e-1 … --e-16` (base 4px). Raios `--raio-sm|md|lg|xl|topo|pilula` (8/12/18/22/18). Sombras `--sombra-1..3`, `--sombra-hover`. Movimento `--dur-rapida`, `--dur`, `--ease`, `--mola`, `--btn-press`, `--lift` (zerados com `prefers-reduced-motion`). Anel de foco de campos: `--foco-anel`.
+- Tema escuro: bloco repetido duas vezes em `tokens.css` (automático por `prefers-color-scheme` e manual por `data-tema="escuro"`). Mantenha idênticos. O mesmo vale para o bloco escuro do portal (`:root[data-area="portal"]`). Contraste de texto verificado em ambos os temas.
 
 ## Breakpoints
-- `< 768px`: celular. Barra superior + menu em gaveta; tabelas viram cartões; botões e campos com 44px.
-- `768–1023px`: menu lateral fixo (recolhível); grades de 2 colunas viram 1 coluna abaixo de 1024px.
+- `< 768px`: celular. Barra superior flutuante + menu em gaveta + barra inferior com "+"; tabelas viram cartões; botões e campos com 44px.
+- `768–1023px`: menu lateral flutuante (recolhível); grades de 2 colunas viram 1 coluna abaixo de 1024px.
 - `≥ 1024px`: layout completo. Conteúdo com largura máxima de 78rem.
 - Telas de acesso: painel da marca some abaixo de 900px.
 
@@ -100,7 +107,7 @@ node $V "#3987e5,#d95926,#199e70,#c98500,#d55181,#008300,#9085e9,#e66767" --mode
 node $V "#86b6ef,#3987e5,#1c5cab" --mode light --surface "#ffffff" --ordinal
 node $V "#2a78d6,#5598e7,#9ec5f4" --mode dark --surface "#151b2b" --ordinal
 ```
-Se mudar a cor de fundo dos cartões (`--cor-superficie`), rode de novo com a nova superfície.
+Se mudar a cor de fundo dos cartões (`--cor-superficie`), rode de novo com a nova superfície. Na Proposta B o claro continua branco; o escuro passou de `#151b2b` para `#0f1d20` (mais escuro, contraste das séries só aumenta). Os comandos acima ainda usam a superfície antiga e o validador não estava instalado nesta sessão: rode de novo com `--surface "#0f1d20"` quando disponível. Grade e eixo dos gráficos (neutros) seguem a paleta nova.
 
 ## Acessibilidade (checklist)
 - [ ] Tudo funciona só com teclado; foco sempre visível (anel `--cor-foco`).
